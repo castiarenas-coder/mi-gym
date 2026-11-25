@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ClipboardList, Dumbbell, Heart, History, Play } from 'lucide-react'
+import { ClipboardList, Dumbbell, Heart, History, Play, Settings } from 'lucide-react'
 import { useResumenProgreso } from '../api/progreso'
 import { useDestacados, useFavoritosInicio } from '../api/ejercicios'
 import { TarjetaEjercicio } from '../components/TarjetaEjercicio'
@@ -10,6 +10,7 @@ const ACCESOS = [
   { a: '/rutinas', texto: 'Mis rutinas', icono: ClipboardList },
   { a: '/ejercicios?favoritos=1', texto: 'Favoritos', icono: Heart },
   { a: '/historial', texto: 'Historial', icono: History },
+  { a: '/ajustes', texto: 'Ajustes y respaldo', icono: Settings },
 ]
 
 export function Inicio() {

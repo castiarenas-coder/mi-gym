@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import { Settings } from 'lucide-react'
 import { SECCIONES } from './rutas'
 
 export function Layout() {
@@ -6,6 +7,7 @@ export function Layout() {
     <div className="app">
       <header className="header">
         <span className="header__marca">MI <span>GYM</span></span>
+        <NavLink to="/ajustes" className="header__ajustes" aria-label="Ajustes"><Settings size={22} aria-hidden /></NavLink>
       </header>
       <main className="contenido">
         <Outlet />

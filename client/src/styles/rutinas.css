@@ -55,3 +55,18 @@
 .fila-busqueda__texto strong { line-height: 1.25; overflow-wrap: anywhere; }
 .fila-busqueda__texto span { color: var(--texto-suave); font-size: 0.8rem; }
 .icono-boton--acento { background: var(--acento); color: var(--acento-texto); border-color: var(--acento); flex: none; }
+
+/* Ajustes */
+.datos { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; font-size: 0.92rem; }
+.datos dt { color: var(--texto-suave); font-weight: 700; }
+.datos dd { margin: 0; min-width: 0; }
+.datos__ruta { overflow-wrap: anywhere; font-family: ui-monospace, monospace; font-size: 0.85rem; }
+.respaldos { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: 340px; overflow-y: auto; }
+.respaldos__item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid var(--borde); border-radius: var(--radio-s); }
+.respaldos__texto { display: grid; gap: 2px; min-width: 0; font-size: 0.9rem; }
+.respaldos__texto span { color: var(--texto-suave); font-size: 0.8rem; overflow-wrap: anywhere; }
+.qr { width: 200px; max-width: 100%; border-radius: var(--radio-s); overflow: hidden; background: #fff; }
+.qr svg { display: block; width: 100%; height: auto; }
+.direcciones { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.header__ajustes { margin-left: auto; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; color: var(--texto-suave); }
+.header__ajustes:hover, .header__ajustes[aria-current='page'] { color: var(--acento); }

@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router-dom'
 import { Layout } from './app/Layout'
 import { SECCIONES } from './app/rutas'
+import { Ajustes } from './pages/Ajustes'
 import { Ejercicio } from './pages/Ejercicio'
 import { Ejercicios } from './pages/Ejercicios'
 import { Entrenar } from './pages/Entrenar'
@@ -24,6 +25,7 @@ export function App() {
         <Route path="/rutinas/:id" element={<Rutina />} />
         <Route path="/entrenar" element={<Entrenar />} />
         <Route path="/progreso" element={<Progreso />} />
+        <Route path="/ajustes" element={<Ajustes />} />
         <Route path="/historial" element={<Historial />} />
         <Route path="/historial/:id" element={<HistorialDetalle />} />
         {PROXIMAS.map(({ ruta, titulo, icono }) => (
