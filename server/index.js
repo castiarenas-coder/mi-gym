@@ -8,7 +8,7 @@ const lan = process.argv.includes('--lan');
 const host = lan ? '0.0.0.0' : '127.0.0.1';
 
 const db = openDb(config.dbFile);
-const app = createApp({ db, imgDir: config.imgDir, clientDir: config.clientDir, version: leerVersion(config.raiz) });
+const app = createApp({ db, imgDir: config.imgDir, mediaDir: config.mediaDir, clientDir: config.clientDir, version: leerVersion(config.raiz) });
 
 // Respaldo diario automático: al arrancar y cada 24 h.
 function respaldar() {

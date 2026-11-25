@@ -1,4 +1,6 @@
-import { Router } from 'express';
+import { Router, raw } from 'express';
+import fs from 'node:fs';
+import path from 'node:path';
 import { normalizar } from '../normalizar.js';
 
 const LIMITE_MAX = 200;
@@ -19,7 +21,12 @@ function entero(valor, porDefecto, min, max) {
 
 const escaparLike = t => t.replace(/[\\%_]/g, c => `\\${c}`);
 
-export function ejerciciosRouter(db) {
+const TIPOS_MEDIA = {
+  'image/gif': 'gif', 'video/mp4': 'mp4', 'video/webm': 'webm', 'image/jpeg': 'jpg', 'image/png': 'png',
+};
+const MEDIA_MAX = 30 * 1024 * 1024;
+
+export function ejerciciosRouter(db, { mediaDir } = {}) {
   const router = Router();
 
   router.get('/', (req, res) => {
@@ -75,6 +82,39 @@ export function ejerciciosRouter(db) {
     db.prepare(`UPDATE ejercicios SET ${sets.join(', ')} WHERE id = ?`).run(...params, req.params.id);
     const fila = db.prepare('SELECT * FROM ejercicios WHERE id = ?').get(req.params.id);
     res.json(formatear(fila, { detalle: true }));
+  });
+
+  // Media propia (GIF, video o foto subida por la persona).
+  const nombreSeguro = id => id.replace(/[^A-Za-z0-9_-]/g, '_');
+  const borrarArchivos = id => {
+    if (!mediaDir || !fs.existsSync(mediaDir)) return;
+    const prefijo = `${nombreSeguro(id)}.`;
+    for (const f of fs.readdirSync(mediaDir)) if (f.startsWith(prefijo)) fs.rmSync(path.join(mediaDir, f), { force: true });
+  };
+  const detalle = id => formatear(db.prepare('SELECT * FROM ejercicios WHERE id = ?').get(id), { detalle: true });
+
+  router.post('/:id/media', raw({ type: () => true, limit: MEDIA_MAX }), (req, res) => {
+    if (!mediaDir) return res.status(501).json({ error: 'La subida de archivos no está habilitada' });
+    const existe = db.prepare('SELECT id FROM ejercicios WHERE id = ?').get(req.params.id);
+    if (!existe) return res.status(404).json({ error: 'Ejercicio no encontrado' });
+    const tipo = String(req.headers['content-type'] ?? '').split(';')[0].trim().toLowerCase();
+    const ext = TIPOS_MEDIA[tipo];
+    if (!ext) return res.status(415).json({ error: 'Formato no permitido. Usá GIF, MP4, WebM, JPG o PNG' });
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) return res.status(400).json({ error: 'El archivo está vacío' });
+    const base = nombreSeguro(req.params.id);
+    fs.mkdirSync(mediaDir, { recursive: true });
+    borrarArchivos(req.params.id);
+    fs.writeFileSync(path.join(mediaDir, `${base}.${ext}`), req.body);
+    db.prepare('UPDATE ejercicios SET media_propia = ? WHERE id = ?').run(`/media/${base}.${ext}?v=${Date.now()}`, req.params.id);
+    res.json(detalle(req.params.id));
+  });
+
+  router.delete('/:id/media', (req, res) => {
+    const existe = db.prepare('SELECT id FROM ejercicios WHERE id = ?').get(req.params.id);
+    if (!existe) return res.status(404).json({ error: 'Ejercicio no encontrado' });
+    borrarArchivos(req.params.id);
+    db.prepare('UPDATE ejercicios SET media_propia = NULL WHERE id = ?').run(req.params.id);
+    res.json(detalle(req.params.id));
   });
 
   return router;
