@@ -13,7 +13,7 @@ export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(appVersion) },
   server: {
     port: 5174,
-    proxy: { '/api': backend, '/img': backend },
+    proxy: { '/api': backend, '/img': backend, '/media': backend },
   },
   build: { outDir: 'dist', sourcemap: false, chunkSizeWarningLimit: 700 },
   test: {

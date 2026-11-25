@@ -1,10 +1,10 @@
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
-import { App } from './App'
+import { instalarApi, verApp } from './test/utils'
 
 function ver(ruta = '/') {
-  return render(<MemoryRouter initialEntries={[ruta]}><App /></MemoryRouter>)
+  instalarApi(() => ({ total: 0, limit: 1, offset: 0, items: [] }))
+  return verApp(ruta)
 }
 
 describe('App', () => {
