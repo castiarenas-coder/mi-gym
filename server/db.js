@@ -82,6 +82,47 @@ export const MIGRACIONES = [
       );
     `,
   },
+  {
+    // F3: las rutinas se dividen en días con nombre; los ejercicios cuelgan del día.
+    version: 2,
+    sql: `
+      ALTER TABLE rutinas ADD COLUMN descripcion TEXT NOT NULL DEFAULT '';
+
+      CREATE TABLE rutina_dias (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rutina_id INTEGER NOT NULL REFERENCES rutinas(id) ON DELETE CASCADE,
+        nombre TEXT NOT NULL,
+        orden INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE INDEX idx_rutina_dias_rutina ON rutina_dias(rutina_id, orden);
+
+      ALTER TABLE rutina_ejercicios RENAME TO rutina_ejercicios_v1;
+      CREATE TABLE rutina_ejercicios (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        dia_id INTEGER NOT NULL REFERENCES rutina_dias(id) ON DELETE CASCADE,
+        ejercicio_id TEXT NOT NULL REFERENCES ejercicios(id),
+        orden INTEGER NOT NULL DEFAULT 0,
+        series INTEGER NOT NULL DEFAULT 3,
+        reps TEXT NOT NULL DEFAULT '10',
+        descanso_seg INTEGER NOT NULL DEFAULT 90,
+        nota TEXT
+      );
+      CREATE INDEX idx_rutina_ejercicios_dia ON rutina_ejercicios(dia_id, orden);
+
+      -- Lo que ya hubiera guardado pasa a un "Día 1" por rutina.
+      INSERT INTO rutina_dias (rutina_id, nombre, orden)
+        SELECT DISTINCT rutina_id, 'Día 1', 0 FROM rutina_ejercicios_v1;
+      INSERT INTO rutina_ejercicios (dia_id, ejercicio_id, orden, series, reps, descanso_seg, nota)
+        SELECT d.id, o.ejercicio_id, o.orden, o.series, o.reps, o.descanso_seg, o.nota
+        FROM rutina_ejercicios_v1 o JOIN rutina_dias d ON d.rutina_id = o.rutina_id;
+      DROP TABLE rutina_ejercicios_v1;
+
+      CREATE TABLE ajustes (
+        clave TEXT PRIMARY KEY,
+        valor TEXT NOT NULL
+      );
+    `,
+  },
 ];
 
 export function versionActual(db) {

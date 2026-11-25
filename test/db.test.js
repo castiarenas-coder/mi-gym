@@ -5,7 +5,7 @@ import { openDb, migrar, versionActual, MIGRACIONES } from '../server/db.js';
 test('openDb crea todas las tablas del plan y registra la versión', () => {
   const db = openDb(':memory:');
   const tablas = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(t => t.name);
-  for (const t of ['ejercicios', 'rutinas', 'rutina_ejercicios', 'sesiones', 'series_hechas', 'medidas', 'perfil', 'schema_version']) {
+  for (const t of ['ejercicios', 'rutinas', 'rutina_dias', 'rutina_ejercicios', 'ajustes', 'sesiones', 'series_hechas', 'medidas', 'perfil', 'schema_version']) {
     assert.ok(tablas.includes(t), `falta la tabla ${t}`);
   }
   assert.equal(versionActual(db), MIGRACIONES.at(-1).version);
@@ -32,5 +32,5 @@ test('una migración que falla no deja nada a medias', () => {
 test('las claves foráneas están activas', () => {
   const db = openDb(':memory:');
   assert.equal(db.prepare('PRAGMA foreign_keys').get().foreign_keys, 1);
-  assert.throws(() => db.prepare("INSERT INTO rutina_ejercicios (rutina_id, ejercicio_id, orden) VALUES (99, 'x', 1)").run());
+  assert.throws(() => db.prepare("INSERT INTO rutina_ejercicios (dia_id, ejercicio_id, orden) VALUES (99, 'x', 1)").run());
 });

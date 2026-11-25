@@ -3,11 +3,13 @@ import { config } from './config.js';
 import { openDb } from './db.js';
 import { createApp, leerVersion } from './app.js';
 import { backupDb } from './backup.js';
+import { sembrarPlantillas } from './plantillas.js';
 
 const lan = process.argv.includes('--lan');
 const host = lan ? '0.0.0.0' : '127.0.0.1';
 
 const db = openDb(config.dbFile);
+try { sembrarPlantillas(db); } catch (err) { console.error('[plantillas]', err.message); }
 const app = createApp({ db, imgDir: config.imgDir, mediaDir: config.mediaDir, clientDir: config.clientDir, version: leerVersion(config.raiz) });
 
 // Respaldo diario automático: al arrancar y cada 24 h.
