@@ -252,6 +252,7 @@ export function migrar(db, migraciones = MIGRACIONES) {
 export function openDb(file = process.env.MI_GYM_DB || path.resolve('data', 'mi_gym.db')) {
   if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true });
   const db = new DatabaseSync(file);
+  db.exec('PRAGMA busy_timeout = 5000'); // dos arranques casi simultaneos esperan en vez de fallar
   db.exec('PRAGMA foreign_keys = ON');
   if (file !== ':memory:') db.exec('PRAGMA journal_mode = WAL');
   migrar(db);
