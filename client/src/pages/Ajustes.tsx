@@ -60,7 +60,7 @@ export function Ajustes() {
         <button type="button" className="boton boton--principal" disabled={ahora.isPending} onClick={() => ahora.mutate(undefined, resultado('Respaldo guardado.'))}>
           <Save size={18} aria-hidden /> Hacer backup ahora
         </button>
-        <p className="bloque__ayuda">Se hace uno solo cada día al abrir la app y se conservan los últimos 30.</p>
+        <p className="bloque__ayuda">Se hace uno solo al abrir la app y cada 24 horas; se conservan los últimos 30.</p>
         {respaldos.isSuccess && respaldos.data.length === 0 && <p className="aviso">Todavía no hay respaldos.</p>}
         {respaldos.isSuccess && respaldos.data.length > 0 && (
           <ul className="respaldos" aria-label="Respaldos">

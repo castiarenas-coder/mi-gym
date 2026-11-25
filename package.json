@@ -15,7 +15,8 @@
     "postinstall": "npm --prefix client install",
     "backup": "node server/backup.js",
     "restore": "node server/backup.js restore",
-    "importar": "node scripts/importar-catalogo.js"
+    "importar": "node scripts/importar-catalogo.js",
+    "acceso-directo": "node scripts/crear-acceso-directo.js"
   },
   "engines": {
     "node": ">=22.19.0"
