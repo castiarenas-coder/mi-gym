@@ -1,0 +1,862 @@
+{
+ "Barbell_Squat": [
+  "Apoyá la barra en el rack a una altura apenas inferior a los hombros, metete debajo y apoyala sobre la parte alta de la espalda.",
+  "Sacá la barra del rack empujando con las piernas y enderezando el torso, y dá uno o dos pasos hacia atrás.",
+  "Separá los pies al ancho de los hombros con las puntas apenas hacia afuera, mantené la cabeza en alto y la espalda recta. Esa es la posición inicial.",
+  "Bajá lento flexionando rodillas y cadera hasta que los muslos queden al menos paralelos al suelo, inhalando durante el descenso. Las rodillas siguen la línea de los pies.",
+  "Subí empujando el piso con los talones mientras exhalás, hasta volver a la posición inicial.",
+  "Repetí la cantidad de repeticiones indicada."
+ ],
+ "Barbell_Full_Squat": [
+  "Colocá la barra sobre la parte alta de la espalda y sacala del rack con el torso erguido.",
+  "Separá los pies al ancho de los hombros, con la mirada al frente y la espalda recta.",
+  "Bajá flexionando cadera y rodillas hasta pasar la paralela, lo más profundo que tu movilidad permita sin redondear la espalda.",
+  "Subí empujando con los talones hasta extender por completo piernas y cadera.",
+  "Repetí las veces indicadas."
+ ],
+ "Front_Barbell_Squat": [
+  "Apoyá la barra sobre los deltoides frontales, con los codos altos y apuntando hacia adelante, sujetándola con los dedos o cruzando los brazos.",
+  "Separá los pies al ancho de los hombros y mantené el torso lo más vertical posible.",
+  "Bajá flexionando rodillas y cadera, sin dejar caer los codos, hasta que los muslos queden paralelos al suelo o más abajo.",
+  "Subí empujando con todo el pie hasta extender las piernas.",
+  "Repetí las veces indicadas."
+ ],
+ "Goblet_Squat": [
+  "Sostené una mancuerna o pesa rusa verticalmente contra el pecho, con las manos debajo de la parte superior.",
+  "Separá los pies un poco más que el ancho de los hombros, con las puntas levemente hacia afuera.",
+  "Bajá en cuclillas entre las piernas manteniendo el pecho arriba y los codos dentro de las rodillas.",
+  "Subí empujando con los talones hasta quedar de pie.",
+  "Repetí las veces indicadas."
+ ],
+ "Bodyweight_Squat": [
+  "Parate con los pies al ancho de los hombros y los brazos extendidos al frente o cruzados sobre el pecho.",
+  "Bajá llevando la cadera hacia atrás y flexionando las rodillas, con la espalda recta y el pecho arriba.",
+  "Descendé hasta que los muslos queden paralelos al suelo, sin que los talones se despeguen.",
+  "Subí empujando con los talones hasta quedar de pie.",
+  "Repetí las veces indicadas."
+ ],
+ "Dumbbell_Squat": [
+  "Parate con una mancuerna en cada mano a los costados del cuerpo y los pies al ancho de los hombros.",
+  "Con la espalda recta y la cabeza en alto, bajá flexionando rodillas y cadera hasta que los muslos queden paralelos al suelo.",
+  "Subí empujando con los talones hasta extender las piernas.",
+  "Repetí las veces indicadas."
+ ],
+ "Barbell_Deadlift": [
+  "Parate con los pies al ancho de la cadera y la barra sobre el medio de los pies.",
+  "Flexioná cadera y rodillas, y tomá la barra con las manos justo por fuera de las piernas, con la espalda recta y el pecho arriba.",
+  "Empujá el piso con las piernas y llevá la cadera hacia adelante mientras subís la barra pegada al cuerpo, hasta quedar de pie con la espalda recta.",
+  "Bajá la barra controlada, llevando primero la cadera hacia atrás y luego flexionando las rodillas, hasta apoyarla en el piso.",
+  "Repetí las veces indicadas."
+ ],
+ "Romanian_Deadlift": [
+  "Sostené la barra con agarre prono al ancho de los hombros, de pie, con las rodillas apenas flexionadas.",
+  "Llevá la cadera hacia atrás y bajá la barra pegada a los muslos manteniendo la espalda recta, hasta sentir el estiramiento de los isquiotibiales.",
+  "Subí empujando la cadera hacia adelante hasta quedar de pie, apretando los glúteos arriba.",
+  "Repetí las veces indicadas."
+ ],
+ "Sumo_Deadlift": [
+  "Colocá los pies bien abiertos, con las puntas hacia afuera, y la barra sobre el medio de los pies.",
+  "Flexioná rodillas y cadera y tomá la barra con las manos separadas al ancho de los hombros, entre las piernas.",
+  "Con la espalda recta, empujá el piso abriendo las rodillas y subí la barra pegada al cuerpo hasta quedar de pie.",
+  "Bajá controlado hasta apoyar la barra en el piso.",
+  "Repetí las veces indicadas."
+ ],
+ "Stiff-Legged_Barbell_Deadlift": [
+  "Parate con los pies al ancho de los hombros y sostené la barra delante de los muslos con agarre prono.",
+  "Con las piernas casi rectas y la espalda recta, inclinate hacia adelante bajando la barra pegada a las piernas hasta sentir el estiramiento en los isquiotibiales.",
+  "Subí contrayendo glúteos e isquiotibiales hasta quedar de pie.",
+  "Repetí las veces indicadas."
+ ],
+ "Trap_Bar_Deadlift": [
+  "Entrá dentro de la barra hexagonal y parate con los pies al ancho de la cadera.",
+  "Flexioná cadera y rodillas, tomá las manijas con la espalda recta y el pecho arriba.",
+  "Empujá el piso con las piernas y extendé la cadera hasta quedar de pie.",
+  "Bajá controlado hasta apoyar la barra en el piso.",
+  "Repetí las veces indicadas."
+ ],
+ "Barbell_Bench_Press_-_Medium_Grip": [
+  "Acostate en el banco plano con los pies firmes en el piso y tomá la barra con un agarre apenas más ancho que los hombros.",
+  "Sacá la barra del soporte y sostenela con los brazos extendidos sobre el pecho. Esa es la posición inicial.",
+  "Bajá la barra lento hasta rozar la parte media del pecho, inhalando.",
+  "Empujá la barra hacia arriba hasta extender los brazos, exhalando.",
+  "Repetí las veces indicadas y devolvé la barra al soporte."
+ ],
+ "Barbell_Incline_Bench_Press_-_Medium_Grip": [
+  "Acostate en un banco inclinado y tomá la barra con agarre apenas más ancho que los hombros.",
+  "Sacá la barra del soporte y sostenela con los brazos extendidos sobre la parte alta del pecho.",
+  "Bajá la barra controlada hasta tocar la parte alta del pecho, inhalando.",
+  "Empujá hacia arriba hasta extender los brazos, exhalando.",
+  "Repetí las veces indicadas y devolvé la barra al soporte."
+ ],
+ "Decline_Barbell_Bench_Press": [
+  "Asegurá las piernas en un banco declinado y acostate con la espalda apoyada.",
+  "Tomá la barra con agarre medio y sacala del soporte con los brazos extendidos.",
+  "Bajá la barra controlada hasta la parte baja del pecho, inhalando.",
+  "Empujá hacia arriba hasta extender los brazos, exhalando.",
+  "Repetí las veces indicadas y devolvé la barra al soporte."
+ ],
+ "Close-Grip_Barbell_Bench_Press": [
+  "Acostate en el banco plano y tomá la barra con las manos separadas a unos 20-30 cm, más cerca que el ancho de los hombros.",
+  "Sacá la barra del soporte y sostenela sobre el pecho con los brazos extendidos.",
+  "Bajá la barra lento con los codos pegados al cuerpo hasta rozar la parte baja del pecho.",
+  "Empujá hacia arriba hasta extender los brazos, enfocándote en el tríceps.",
+  "Repetí las veces indicadas."
+ ],
+ "Dumbbell_Bench_Press": [
+  "Sentate en un banco plano con una mancuerna en cada mano apoyada sobre los muslos y acostate llevándolas a la altura del pecho.",
+  "Empujá las mancuernas hacia arriba hasta extender los brazos, con las palmas hacia adelante.",
+  "Bajá lento hasta que las mancuernas queden a la altura del pecho, inhalando.",
+  "Subí de nuevo exhalando y apretando el pecho arriba.",
+  "Repetí las veces indicadas."
+ ],
+ "Incline_Dumbbell_Press": [
+  "Acostate en un banco inclinado con una mancuerna en cada mano a la altura de los hombros.",
+  "Empujá las mancuernas hacia arriba hasta extender los brazos.",
+  "Bajá lento hasta sentir el estiramiento en la parte alta del pecho, inhalando.",
+  "Subí de nuevo exhalando.",
+  "Repetí las veces indicadas."
+ ],
+ "Dumbbell_Flyes": [
+  "Acostate en un banco plano con una mancuerna en cada mano, brazos extendidos sobre el pecho y palmas enfrentadas.",
+  "Con los codos apenas flexionados, abrí los brazos hacia los costados en un arco amplio hasta sentir el estiramiento en el pecho.",
+  "Volvé por el mismo arco llevando las mancuernas hacia arriba, como si abrazaras un árbol grande.",
+  "Repetí las veces indicadas."
+ ],
+ "Incline_Dumbbell_Flyes": [
+  "Acostate en un banco inclinado con una mancuerna en cada mano, brazos extendidos sobre el pecho y palmas enfrentadas.",
+  "Con los codos apenas flexionados, abrí los brazos en arco hasta sentir el estiramiento en el pecho alto.",
+  "Volvé por el mismo arco apretando el pecho hasta juntar las mancuernas arriba.",
+  "Repetí las veces indicadas."
+ ],
+ "Cable_Crossover": [
+  "Colocá las poleas en la posición alta, tomá una manija en cada mano y dá un paso al frente, con una pierna adelantada.",
+  "Con los brazos abiertos y los codos apenas flexionados, inclinate un poco hacia adelante.",
+  "Llevá las manos hacia abajo y al frente en un arco hasta juntarlas delante de la cadera, apretando el pecho.",
+  "Volvé lento a la posición inicial.",
+  "Repetí las veces indicadas."
+ ],
+ "Butterfly": [
+  "Sentate en la máquina con la espalda apoyada y los antebrazos o las manos sobre las almohadillas, a la altura del pecho.",
+  "Juntá los brazos al frente apretando el pecho.",
+  "Mantené un instante la contracción.",
+  "Volvé lento a la posición inicial sin que las pesas se apoyen.",
+  "Repetí las veces indicadas."
+ ],
+ "Pushups": [
+  "Apoyá las manos en el piso un poco más abiertas que los hombros y extendé las piernas atrás, con el cuerpo en línea recta de la cabeza a los talones.",
+  "Bajá el cuerpo flexionando los codos hasta que el pecho casi toque el piso, inhalando.",
+  "Empujá el piso con las manos hasta extender los brazos, exhalando.",
+  "Mantené el abdomen firme todo el movimiento.",
+  "Repetí las veces indicadas."
+ ],
+ "Incline_Push-Up": [
+  "Apoyá las manos sobre un banco o superficie elevada, un poco más abiertas que los hombros, con el cuerpo en línea recta.",
+  "Bajá el pecho hacia el borde flexionando los codos.",
+  "Empujá hasta extender los brazos.",
+  "Repetí las veces indicadas."
+ ],
+ "Decline_Push-Up": [
+  "Apoyá los pies sobre un banco y las manos en el piso, un poco más abiertas que los hombros.",
+  "Con el cuerpo en línea recta, bajá el pecho hacia el piso flexionando los codos.",
+  "Empujá hasta extender los brazos.",
+  "Repetí las veces indicadas."
+ ],
+ "Dips_-_Chest_Version": [
+  "Subite a las barras paralelas con los brazos extendidos y las piernas flexionadas hacia atrás.",
+  "Inclinate hacia adelante y bajá flexionando los codos hacia afuera hasta sentir el estiramiento en el pecho.",
+  "Empujá hacia arriba hasta extender los brazos, manteniendo la inclinación.",
+  "Repetí las veces indicadas."
+ ],
+ "Dips_-_Triceps_Version": [
+  "Subite a las barras paralelas con los brazos extendidos y el cuerpo vertical.",
+  "Bajá lento con los codos pegados al cuerpo hasta que los brazos formen 90 grados.",
+  "Empujá hacia arriba hasta extender los brazos, apretando los tríceps.",
+  "Repetí las veces indicadas."
+ ],
+ "Bench_Dips": [
+  "Sentate en el borde de un banco con las manos al costado de la cadera y deslizá la cadera hacia adelante, con las piernas extendidas.",
+  "Bajá flexionando los codos hasta unos 90 grados.",
+  "Empujá con los tríceps hasta extender los brazos.",
+  "Repetí las veces indicadas."
+ ],
+ "Pullups": [
+  "Tomá la barra con las palmas hacia adelante, un poco más abiertas que los hombros, y colgate con los brazos extendidos.",
+  "Subí llevando el pecho hacia la barra, llevando los codos hacia abajo y atrás.",
+  "Mantené un instante arriba y bajá lento hasta extender los brazos.",
+  "Repetí las veces indicadas."
+ ],
+ "Chin-Up": [
+  "Tomá la barra con las palmas hacia vos, al ancho de los hombros, y colgate con los brazos extendidos.",
+  "Subí hasta que el mentón supere la barra, apretando la espalda y los bíceps.",
+  "Bajá lento hasta extender los brazos.",
+  "Repetí las veces indicadas."
+ ],
+ "Wide-Grip_Lat_Pulldown": [
+  "Sentate en la máquina, ajustá las almohadillas sobre los muslos y tomá la barra con agarre ancho y prono.",
+  "Con el torso levemente inclinado hacia atrás, jalá la barra hacia la parte alta del pecho llevando los codos hacia abajo.",
+  "Mantené un instante la contracción de los dorsales.",
+  "Volvé lento hasta extender los brazos.",
+  "Repetí las veces indicadas."
+ ],
+ "Close-Grip_Front_Lat_Pulldown": [
+  "Sentate en la máquina y tomá la barra con agarre cerrado, con las palmas hacia adelante.",
+  "Con el torso apenas inclinado hacia atrás, jalá la barra hasta el pecho.",
+  "Mantené un instante la contracción.",
+  "Volvé lento hasta extender los brazos.",
+  "Repetí las veces indicadas."
+ ],
+ "Underhand_Cable_Pulldowns": [
+  "Sentate en la máquina de jalón y tomá la barra con agarre supino, al ancho de los hombros.",
+  "Jalá la barra hasta la parte alta del pecho, con el torso apenas inclinado hacia atrás.",
+  "Apretá la espalda un instante.",
+  "Volvé lento hasta extender los brazos.",
+  "Repetí las veces indicadas."
+ ],
+ "Straight-Arm_Pulldown": [
+  "Parate frente a la polea alta y tomá la barra con agarre prono, con los brazos extendidos y el torso apenas inclinado hacia adelante.",
+  "Con los brazos rectos, jalá la barra hacia abajo en arco hasta los muslos, contrayendo los dorsales.",
+  "Volvé lento a la posición inicial.",
+  "Repetí las veces indicadas."
+ ],
+ "Bent_Over_Barbell_Row": [
+  "Tomá la barra con agarre prono al ancho de los hombros, flexioná un poco las rodillas e inclinate hacia adelante con la espalda recta.",
+  "Con los brazos extendidos, jalá la barra hacia la parte baja del abdomen llevando los codos atrás.",
+  "Apretá la espalda un instante.",
+  "Bajá lento hasta extender los brazos.",
+  "Repetí las veces indicadas."
+ ],
+ "One-Arm_Dumbbell_Row": [
+  "Apoyá una mano y la rodilla del mismo lado en un banco, con la espalda paralela al piso, y sostené una mancuerna con el otro brazo.",
+  "Jalá la mancuerna hacia la cadera, con el codo pegado al cuerpo, apretando la espalda.",
+  "Bajá lento hasta extender el brazo.",
+  "Repetí las veces indicadas y cambiá de lado."
+ ],
+ "Seated_Cable_Rows": [
+  "Sentate en la máquina de remo con los pies apoyados y las rodillas apenas flexionadas, y tomá el agarre.",
+  "Con la espalda recta, jalá el agarre hacia el abdomen llevando los codos atrás y juntando los omóplatos.",
+  "Mantené un instante la contracción.",
+  "Volvé lento hasta extender los brazos.",
+  "Repetí las veces indicadas."
+ ],
+ "Inverted_Row": [
+  "Acostate debajo de una barra fija a la altura de la cintura y tomala con agarre prono, un poco más abierto que los hombros.",
+  "Con el cuerpo recto de cabeza a talones, jalá el pecho hacia la barra.",
+  "Bajá lento hasta extender los brazos.",
+  "Repetí las veces indicadas."
+ ],
+ "T-Bar_Row_with_Handle": [
+  "Parate sobre la plataforma con la barra entre las piernas y tomá la manija, con las rodillas flexionadas y la espalda recta, inclinado hacia adelante.",
+  "Jalá la barra hacia el pecho llevando los codos atrás.",
+  "Apretá la espalda un instante.",
+  "Bajá lento hasta extender los brazos.",
+  "Repetí las veces indicadas."
+ ],
+ "Face_Pull": [
+  "Ajustá la polea a la altura de la cara y tomá la cuerda con las palmas enfrentadas, dando unos pasos atrás.",
+  "Jalá la cuerda hacia la cara abriendo los codos hacia los costados, a la altura de los hombros.",
+  "Apretá los omóplatos un instante.",
+  "Volvé lento a la posición inicial.",
+  "Repetí las veces indicadas."
+ ],
+ "Barbell_Shoulder_Press": [
+  "Sentate en un banco con respaldo y tomá la barra con agarre prono un poco más abierto que los hombros.",
+  "Sacá la barra del soporte y bajala hasta la altura de la barbilla.",
+  "Empujá hacia arriba hasta extender los brazos, exhalando.",
+  "Bajá lento y repetí las veces indicadas."
+ ],
+ "Dumbbell_Shoulder_Press": [
+  "Sentate en un banco con respaldo y llevá una mancuerna a cada lado de los hombros, con las palmas hacia adelante.",
+  "Empujá las mancuernas hacia arriba hasta extender los brazos.",
+  "Bajá lento hasta la altura de las orejas.",
+  "Repetí las veces indicadas."
+ ],
+ "Seated_Dumbbell_Press": [
+  "Sentate con la espalda apoyada y llevá una mancuerna a cada lado de los hombros.",
+  "Empujá hacia arriba hasta extender los brazos, juntando las mancuernas arriba.",
+  "Bajá lento a la posición inicial.",
+  "Repetí las veces indicadas."
+ ],
+ "Arnold_Dumbbell_Press": [
+  "Sentate con una mancuerna en cada mano frente a los hombros, con las palmas hacia vos.",
+  "Empujá hacia arriba mientras rotás las muñecas hasta que las palmas miren hacia adelante.",
+  "Extendé los brazos arriba y bajá invirtiendo el giro.",
+  "Repetí las veces indicadas."
+ ],
+ "Standing_Military_Press": [
+  "Parate con los pies al ancho de los hombros y sostené la barra a la altura de la clavícula con agarre prono.",
+  "Empujá la barra hacia arriba sobre la cabeza hasta extender los brazos, con el abdomen firme.",
+  "Bajá controlado hasta la clavícula.",
+  "Repetí las veces indicadas."
+ ],
+ "Push_Press": [
+  "Sostené la barra a la altura de los hombros con agarre prono y los pies al ancho de la cadera.",
+  "Flexioná apenas las rodillas y extendelas con fuerza, usando ese impulso para empujar la barra sobre la cabeza.",
+  "Extendé los brazos por completo arriba.",
+  "Bajá la barra controlada hasta los hombros y repetí."
+ ],
+ "Side_Lateral_Raise": [
+  "Parate con una mancuerna en cada mano a los costados del cuerpo y los codos apenas flexionados.",
+  "Elevá los brazos hacia los costados hasta la altura de los hombros.",
+  "Mantené un instante arriba y bajá lento.",
+  "Repetí las veces indicadas, sin balancear el torso."
+ ],
+ "Front_Dumbbell_Raise": [
+  "Parate con una mancuerna en cada mano frente a los muslos y los brazos extendidos.",
+  "Elevá una mancuerna hacia adelante hasta la altura de los hombros, con el codo apenas flexionado.",
+  "Bajá lento y repetí con el otro brazo.",
+  "Seguí alternando las veces indicadas."
+ ],
+ "Bent_Over_Dumbbell_Rear_Delt_Raise_With_Head_On_Bench": [
+  "Apoyá la frente en un banco inclinado y sostené una mancuerna en cada mano con los brazos colgando.",
+  "Con los codos apenas flexionados, elevá los brazos hacia los costados hasta la altura de la espalda.",
+  "Apretá la parte trasera de los hombros un instante.",
+  "Bajá lento y repetí."
+ ],
+ "Reverse_Flyes": [
+  "Inclinate hacia adelante con la espalda recta y una mancuerna en cada mano, con los brazos colgando.",
+  "Elevá los brazos hacia los costados con los codos apenas flexionados, juntando los omóplatos.",
+  "Bajá lento a la posición inicial.",
+  "Repetí las veces indicadas."
+ ],
+ "Upright_Barbell_Row": [
+  "Parate con la barra frente a los muslos y agarre prono, con las manos a unos 20 cm de separación.",
+  "Subí la barra pegada al cuerpo hasta el mentón, llevando los codos hacia arriba y afuera.",
+  "Bajá lento hasta extender los brazos.",
+  "Repetí las veces indicadas."
+ ],
+ "Barbell_Shrug": [
+  "Parate con la barra frente a los muslos con agarre prono, un poco más abierto que los hombros.",
+  "Elevá los hombros hacia las orejas lo más que puedas, sin flexionar los codos.",
+  "Mantené un instante arriba y bajá lento.",
+  "Repetí las veces indicadas."
+ ],
+ "Dumbbell_Shrug": [
+  "Parate con una mancuerna en cada mano a los costados del cuerpo.",
+  "Elevá los hombros hacia las orejas lo más que puedas, sin flexionar los codos.",
+  "Mantené un instante arriba y bajá lento.",
+  "Repetí las veces indicadas."
+ ],
+ "Barbell_Curl": [
+  "Parate con la barra en las manos con agarre supino al ancho de los hombros y los codos pegados al cuerpo.",
+  "Subí la barra flexionando los codos hasta contraer los bíceps, sin balancear el torso.",
+  "Mantené un instante arriba y bajá lento hasta extender los brazos.",
+  "Repetí las veces indicadas."
+ ],
+ "Dumbbell_Bicep_Curl": [
+  "Parate con una mancuerna en cada mano a los costados del cuerpo, con las palmas hacia adelante.",
+  "Subí las mancuernas flexionando los codos, manteniéndolos pegados al cuerpo.",
+  "Contraé los bíceps arriba y bajá lento.",
+  "Repetí las veces indicadas."
+ ],
+ "Alternate_Hammer_Curl": [
+  "Parate con una mancuerna en cada mano, con las palmas enfrentadas (agarre martillo).",
+  "Subí una mancuerna flexionando el codo, sin rotar la muñeca.",
+  "Bajá lento y repetí con el otro brazo.",
+  "Seguí alternando las veces indicadas."
+ ],
+ "Hammer_Curls": [
+  "Parate con una mancuerna en cada mano con las palmas enfrentadas y los codos pegados al cuerpo.",
+  "Subí ambas mancuernas flexionando los codos, sin rotar las muñecas.",
+  "Bajá lento hasta extender los brazos.",
+  "Repetí las veces indicadas."
+ ],
+ "Preacher_Curl": [
+  "Sentate en el banco predicador con la parte alta de los brazos apoyada en la almohadilla y sostené la barra con agarre supino.",
+  "Subí la barra flexionando los codos hasta contraer los bíceps.",
+  "Bajá lento hasta casi extender los brazos.",
+  "Repetí las veces indicadas."
+ ],
+ "Concentration_Curls": [
+  "Sentate en un banco con las piernas abiertas y apoyá el codo en la cara interna del muslo, con una mancuerna en la mano.",
+  "Subí la mancuerna flexionando el codo hasta contraer el bíceps.",
+  "Bajá lento hasta extender el brazo.",
+  "Repetí las veces indicadas y cambiá de brazo."
+ ],
+ "EZ-Bar_Curl": [
+  "Parate con la barra Z tomada por las curvas interiores, con agarre supino y los codos pegados al cuerpo.",
+  "Subí la barra flexionando los codos hasta contraer los bíceps.",
+  "Bajá lento hasta extender los brazos.",
+  "Repetí las veces indicadas."
+ ],
+ "Incline_Dumbbell_Curl": [
+  "Acostate en un banco inclinado con una mancuerna en cada mano y los brazos colgando.",
+  "Subí las mancuernas flexionando los codos, sin mover la parte alta de los brazos.",
+  "Contraé los bíceps y bajá lento hasta extender los brazos.",
+  "Repetí las veces indicadas."
+ ],
+ "Cable_Preacher_Curl": [
+  "Sentate en el banco predicador frente a una polea baja y tomá la barra con agarre supino.",
+  "Subí la barra flexionando los codos con la parte alta de los brazos apoyada.",
+  "Bajá lento hasta casi extender los brazos.",
+  "Repetí las veces indicadas."
+ ],
+ "Triceps_Pushdown": [
+  "Parate frente a la polea alta y tomá la barra con agarre prono y los codos pegados al cuerpo.",
+  "Empujá la barra hacia abajo hasta extender los brazos, contrayendo los tríceps.",
+  "Volvé lento hasta que los antebrazos queden paralelos al piso.",
+  "Repetí las veces indicadas."
+ ],
+ "Triceps_Pushdown_-_Rope_Attachment": [
+  "Parate frente a la polea alta con la cuerda y los codos pegados al cuerpo.",
+  "Empujá la cuerda hacia abajo separando las manos al final, hasta extender los brazos.",
+  "Contraé los tríceps un instante.",
+  "Volvé lento y repetí."
+ ],
+ "EZ-Bar_Skullcrusher": [
+  "Acostate en un banco plano con la barra Z sobre el pecho y los brazos extendidos hacia arriba.",
+  "Flexioná los codos bajando la barra hacia la frente, sin mover la parte alta de los brazos.",
+  "Extendé los brazos contrayendo los tríceps.",
+  "Repetí las veces indicadas."
+ ],
+ "Lying_Triceps_Press": [
+  "Acostate en un banco plano con una barra en las manos y los brazos extendidos sobre el pecho.",
+  "Bajá la barra flexionando los codos hacia la frente, con la parte alta de los brazos quieta.",
+  "Extendé los brazos hasta arriba.",
+  "Repetí las veces indicadas."
+ ],
+ "Standing_Dumbbell_Triceps_Extension": [
+  "Parate y sostené una mancuerna con ambas manos sobre la cabeza, con los brazos extendidos.",
+  "Bajá la mancuerna detrás de la cabeza flexionando los codos, sin moverlos hacia los costados.",
+  "Extendé los brazos hasta arriba contrayendo los tríceps.",
+  "Repetí las veces indicadas."
+ ],
+ "Tricep_Dumbbell_Kickback": [
+  "Inclinate hacia adelante apoyando una mano y una rodilla en un banco, con una mancuerna en la otra mano y el codo pegado al torso.",
+  "Extendé el antebrazo hacia atrás hasta estirar por completo el brazo.",
+  "Contraé el tríceps y volvé lento.",
+  "Repetí las veces indicadas y cambiá de brazo."
+ ],
+ "Cable_Rope_Overhead_Triceps_Extension": [
+  "Tomá la cuerda de una polea baja y girate de espaldas a la máquina, con las manos detrás de la cabeza.",
+  "Extendé los brazos hacia adelante y arriba, contrayendo los tríceps.",
+  "Volvé lento detrás de la cabeza.",
+  "Repetí las veces indicadas."
+ ],
+ "Leg_Press": [
+  "Sentate en la máquina con la espalda apoyada y los pies en la plataforma al ancho de los hombros.",
+  "Soltá los seguros y bajá la plataforma flexionando las rodillas hasta unos 90 grados.",
+  "Empujá con los talones hasta extender las piernas, sin bloquear las rodillas.",
+  "Repetí las veces indicadas."
+ ],
+ "Leg_Extensions": [
+  "Sentate en la máquina con la espalda apoyada y los tobillos debajo de las almohadillas.",
+  "Extendé las piernas hasta enderezarlas, contrayendo los cuádriceps.",
+  "Mantené un instante arriba y bajá lento.",
+  "Repetí las veces indicadas."
+ ],
+ "Lying_Leg_Curls": [
+  "Acostate boca abajo en la máquina con los talones debajo de las almohadillas.",
+  "Flexioná las rodillas llevando los talones hacia los glúteos.",
+  "Contraé los isquiotibiales un instante y bajá lento.",
+  "Repetí las veces indicadas."
+ ],
+ "Seated_Leg_Curl": [
+  "Sentate en la máquina con la espalda apoyada y las piernas sobre la almohadilla.",
+  "Flexioná las rodillas llevando los talones hacia abajo y atrás.",
+  "Contraé los isquiotibiales y volvé lento.",
+  "Repetí las veces indicadas."
+ ],
+ "Standing_Calf_Raises": [
+  "Parate en la máquina con los hombros debajo de las almohadillas y la punta de los pies sobre el borde de la plataforma.",
+  "Elevá los talones lo más alto que puedas.",
+  "Mantené un instante arriba y bajá lento hasta sentir el estiramiento.",
+  "Repetí las veces indicadas."
+ ],
+ "Seated_Calf_Raise": [
+  "Sentate en la máquina con las rodillas debajo de la almohadilla y la punta de los pies en la plataforma.",
+  "Elevá los talones lo más alto que puedas.",
+  "Mantené un instante y bajá lento hasta estirar los gemelos.",
+  "Repetí las veces indicadas."
+ ],
+ "Barbell_Lunge": [
+  "Apoyá la barra sobre la parte alta de la espalda y parate con los pies al ancho de la cadera.",
+  "Dá un paso largo hacia adelante y bajá hasta que ambas rodillas formen 90 grados.",
+  "Empujá con el pie de adelante para volver a la posición inicial.",
+  "Repetí con la otra pierna y alterná las veces indicadas."
+ ],
+ "Dumbbell_Lunges": [
+  "Parate con una mancuerna en cada mano a los costados del cuerpo.",
+  "Dá un paso largo hacia adelante y bajá hasta que ambas rodillas formen 90 grados.",
+  "Empujá con el pie de adelante para volver al inicio.",
+  "Alterná las piernas las veces indicadas."
+ ],
+ "Barbell_Walking_Lunge": [
+  "Apoyá la barra sobre la parte alta de la espalda y parate con los pies juntos.",
+  "Dá un paso largo hacia adelante y bajá hasta que ambas rodillas formen 90 grados.",
+  "Impulsate con la pierna de atrás y dá el siguiente paso con la otra pierna.",
+  "Seguí caminando alternando las piernas."
+ ],
+ "Split_Squats": [
+  "Parate con una pierna adelantada y la otra atrás, con los pies separados en un paso largo.",
+  "Bajá flexionando las rodillas hasta que la rodilla de atrás casi toque el piso.",
+  "Subí empujando con la pierna de adelante.",
+  "Repetí las veces indicadas y cambiá de pierna."
+ ],
+ "Barbell_Hip_Thrust": [
+  "Apoyá la parte alta de la espalda en un banco y colocá la barra sobre la cadera, con las rodillas flexionadas y los pies firmes.",
+  "Empujá la cadera hacia arriba con los talones hasta que el cuerpo quede en línea de hombros a rodillas.",
+  "Apretá los glúteos arriba y bajá lento.",
+  "Repetí las veces indicadas."
+ ],
+ "Barbell_Glute_Bridge": [
+  "Acostate boca arriba con las rodillas flexionadas y la barra sobre la cadera.",
+  "Empujá la cadera hacia arriba con los talones hasta formar una línea recta de hombros a rodillas.",
+  "Apretá los glúteos un instante y bajá lento.",
+  "Repetí las veces indicadas."
+ ],
+ "Glute_Kickback": [
+  "Ponete en cuatro apoyos o usá la máquina, con la espalda recta.",
+  "Llevá una pierna hacia atrás y arriba, apretando el glúteo.",
+  "Volvé lento sin apoyar el pie.",
+  "Repetí las veces indicadas y cambiá de pierna."
+ ],
+ "Hack_Squat": [
+  "Colocá la espalda y los hombros contra las almohadillas de la máquina y los pies al ancho de los hombros en la plataforma.",
+  "Soltá los seguros y bajá flexionando las rodillas hasta unos 90 grados.",
+  "Empujá con los talones hasta extender las piernas.",
+  "Repetí las veces indicadas."
+ ],
+ "Barbell_Step_Ups": [
+  "Apoyá la barra sobre la espalda y parate frente a un cajón o banco.",
+  "Subí con un pie y empujá hasta quedar de pie sobre el cajón.",
+  "Bajá controlado con la misma pierna.",
+  "Repetí las veces indicadas y cambiá de pierna."
+ ],
+ "Dumbbell_Step_Ups": [
+  "Sostené una mancuerna en cada mano y parate frente a un cajón o banco.",
+  "Subí con un pie y empujá hasta quedar de pie sobre el cajón.",
+  "Bajá controlado con la misma pierna.",
+  "Repetí las veces indicadas y cambiá de pierna."
+ ],
+ "Good_Morning": [
+  "Apoyá la barra sobre la parte alta de la espalda y parate con los pies al ancho de los hombros.",
+  "Con las rodillas apenas flexionadas, inclinate hacia adelante llevando la cadera atrás y manteniendo la espalda recta.",
+  "Bajá hasta que el torso quede casi paralelo al piso.",
+  "Subí contrayendo glúteos e isquiotibiales hasta quedar de pie."
+ ],
+ "Hyperextensions_Back_Extensions": [
+  "Acomodate en el banco de hiperextensiones con las caderas apoyadas en la almohadilla y los tobillos asegurados.",
+  "Con los brazos cruzados sobre el pecho, bajá el torso doblando la cadera.",
+  "Subí contrayendo lumbares y glúteos hasta alinear el cuerpo.",
+  "Repetí las veces indicadas."
+ ],
+ "Reverse_Hyperextension": [
+  "Acostate boca abajo sobre la máquina con el torso apoyado y las piernas colgando.",
+  "Elevá las piernas hacia atrás contrayendo glúteos y lumbares.",
+  "Bajá lento sin perder el control.",
+  "Repetí las veces indicadas."
+ ],
+ "Crunches": [
+  "Acostate boca arriba con las rodillas flexionadas y los pies en el piso, con las manos detrás de la cabeza.",
+  "Elevá los hombros del piso contrayendo el abdomen.",
+  "Mantené un instante arriba y bajá lento.",
+  "Repetí las veces indicadas, sin jalar del cuello."
+ ],
+ "Sit-Up": [
+  "Acostate boca arriba con las rodillas flexionadas y los pies firmes.",
+  "Con las manos cruzadas sobre el pecho, subí el torso hasta quedar sentado.",
+  "Bajá lento hasta apoyar la espalda.",
+  "Repetí las veces indicadas."
+ ],
+ "Cable_Crunch": [
+  "Arrodillate frente a una polea alta y sostené la cuerda detrás de la cabeza.",
+  "Bajá el torso llevando los codos hacia las rodillas y contrayendo el abdomen.",
+  "Volvé lento a la posición inicial.",
+  "Repetí las veces indicadas."
+ ],
+ "Hanging_Leg_Raise": [
+  "Colgate de una barra con los brazos extendidos y las piernas juntas.",
+  "Elevá las piernas hacia adelante hasta que queden paralelas al piso o más arriba.",
+  "Bajá lento sin balancearte.",
+  "Repetí las veces indicadas."
+ ],
+ "Plank": [
+  "Apoyá los antebrazos y la punta de los pies en el piso, con el cuerpo en línea recta de la cabeza a los talones.",
+  "Contraé el abdomen y los glúteos, sin dejar caer la cadera.",
+  "Mantené la posición el tiempo indicado, respirando con normalidad."
+ ],
+ "Russian_Twist": [
+  "Sentate en el piso con las rodillas flexionadas y los pies elevados, con el torso inclinado hacia atrás.",
+  "Sostené un peso con ambas manos frente al pecho.",
+  "Girá el torso hacia un lado y luego hacia el otro, tocando el piso con el peso.",
+  "Repetí las veces indicadas."
+ ],
+ "Mountain_Climbers": [
+  "Colocate en posición de plancha alta con las manos bajo los hombros.",
+  "Llevá una rodilla hacia el pecho y volvé a extenderla, alternando rápido las piernas.",
+  "Mantené la cadera baja y el abdomen firme.",
+  "Seguí el tiempo indicado."
+ ],
+ "Ab_Roller": [
+  "Arrodillate en el piso y sostené la rueda con ambas manos, bajo los hombros.",
+  "Rodá hacia adelante estirando el cuerpo todo lo que puedas sin que la espalda se hunda.",
+  "Volvé a la posición inicial contrayendo el abdomen.",
+  "Repetí las veces indicadas."
+ ],
+ "Reverse_Crunch": [
+  "Acostate boca arriba con las piernas flexionadas y elevadas, con las manos a los costados.",
+  "Elevá la cadera del piso llevando las rodillas hacia el pecho.",
+  "Bajá lento hasta apoyar la cadera.",
+  "Repetí las veces indicadas."
+ ],
+ "Side_Bridge": [
+  "Acostate de costado apoyando el antebrazo en el piso, bajo el hombro, con las piernas extendidas.",
+  "Elevá la cadera hasta que el cuerpo quede en línea recta.",
+  "Mantené la posición el tiempo indicado y cambiá de lado."
+ ],
+ "Flutter_Kicks": [
+  "Acostate boca arriba con las piernas extendidas apenas despegadas del piso y las manos bajo la cola.",
+  "Subí y bajá las piernas alternando en movimientos cortos y rápidos.",
+  "Mantené el abdomen contraído y la zona lumbar apoyada.",
+  "Seguí el tiempo indicado."
+ ],
+ "Dead_Bug": [
+  "Acostate boca arriba con los brazos extendidos hacia el techo y las rodillas flexionadas a 90 grados.",
+  "Bajá el brazo derecho y la pierna izquierda hacia el piso, sin despegar la zona lumbar.",
+  "Volvé al centro y repetí con el lado opuesto.",
+  "Alterná las veces indicadas."
+ ],
+ "Superman": [
+  "Acostate boca abajo con los brazos extendidos hacia adelante y las piernas juntas.",
+  "Elevá a la vez brazos y piernas del piso, contrayendo lumbares y glúteos.",
+  "Mantené un instante arriba y bajá lento.",
+  "Repetí las veces indicadas."
+ ],
+ "Bicycling_Stationary": [
+  "Sentate en la bicicleta fija y ajustá el asiento a la altura de la cadera.",
+  "Pedaleá a un ritmo constante con la espalda recta y los hombros relajados.",
+  "Ajustá la resistencia según el objetivo y el tiempo indicado."
+ ],
+ "Running_Treadmill": [
+  "Subite a la cinta y empezá caminando para entrar en calor.",
+  "Aumentá la velocidad hasta un trote o carrera cómoda, con la mirada al frente y los brazos flexionados.",
+  "Mantené el ritmo el tiempo indicado y terminá bajando la velocidad de a poco."
+ ],
+ "Rope_Jumping": [
+  "Sostené la cuerda con ambas manos a los costados de la cadera.",
+  "Girá la cuerda con las muñecas y saltá apenas lo necesario para pasarla bajo los pies.",
+  "Aterrizá suave sobre la punta de los pies y mantené un ritmo constante."
+ ],
+ "Rowing_Stationary": [
+  "Sentate en el remo con los pies atados y tomá la manija con los brazos extendidos.",
+  "Empujá con las piernas, luego inclinate hacia atrás y jalá la manija hacia el abdomen.",
+  "Volvé estirando los brazos, inclinando el torso y flexionando las rodillas.",
+  "Mantené un ritmo constante."
+ ],
+ "Elliptical_Trainer": [
+  "Subite a la elíptica y agarrate de las manijas.",
+  "Empujá los pedales con un movimiento fluido, con la espalda recta.",
+  "Ajustá la resistencia y la inclinación según el objetivo, durante el tiempo indicado."
+ ],
+ "Kettlebell_Thruster": [
+  "Sostené una pesa rusa contra el pecho, con los pies al ancho de los hombros.",
+  "Bajá en sentadilla manteniendo el pecho arriba.",
+  "Subí con fuerza y usá el impulso para empujar la pesa sobre la cabeza.",
+  "Bajá la pesa al pecho y repetí."
+ ],
+ "One-Arm_Kettlebell_Swings": [
+  "Parate con los pies al ancho de los hombros y la pesa rusa en el piso delante de vos.",
+  "Inclinate llevando la cadera atrás, tomá la pesa con una mano y balanceala hacia atrás entre las piernas.",
+  "Empujá la cadera hacia adelante con fuerza y llevá la pesa hasta la altura del pecho.",
+  "Dejala bajar y repetí, cambiando de mano."
+ ],
+ "Clean": [
+  "Parate con los pies al ancho de la cadera y la barra sobre el medio de los pies, tomada con agarre prono.",
+  "Subí la barra extendiendo piernas y cadera con fuerza.",
+  "Cuando pase las rodillas, encogé los hombros y dejate caer bajo la barra, recibiéndola sobre los hombros con los codos al frente.",
+  "Extendete hasta quedar de pie y bajá la barra controlada."
+ ],
+ "Power_Clean": [
+  "Colocate con la barra pegada a las espinillas y la espalda recta.",
+  "Subí la barra rápido extendiendo piernas y cadera, pegándola al cuerpo.",
+  "Dejate caer apenas y recibila sobre los hombros en un cuarto de sentadilla.",
+  "Extendete hasta quedar de pie y bajá la barra controlada."
+ ],
+ "Snatch": [
+  "Tomá la barra con agarre muy abierto y colocate con los pies al ancho de la cadera.",
+  "Subí la barra extendiendo piernas y cadera con fuerza, pegada al cuerpo.",
+  "Encogé los hombros y metete bajo la barra recibiéndola sobre la cabeza con los brazos extendidos, en sentadilla.",
+  "Extendete hasta quedar de pie y bajá la barra controlada."
+ ],
+ "Clean_and_Jerk": [
+  "Realizá una cargada llevando la barra hasta los hombros y quedá de pie.",
+  "Flexioná apenas las rodillas y extendelas con fuerza para impulsar la barra hacia arriba.",
+  "Metete debajo de la barra en una tijera de piernas y extendé los brazos sobre la cabeza.",
+  "Juntá los pies, estabilizá y bajá la barra controlada."
+ ],
+ "Smith_Machine_Squat": [
+  "Colocá la barra de la máquina Smith sobre la parte alta de la espalda y los pies ligeramente adelantados.",
+  "Soltá el seguro y bajá flexionando las rodillas hasta que los muslos queden paralelos al piso.",
+  "Subí empujando con los talones hasta extender las piernas.",
+  "Repetí las veces indicadas y trabá la barra al terminar."
+ ],
+ "Smith_Machine_Bench_Press": [
+  "Acostate en un banco plano bajo la barra de la máquina Smith y tomala con agarre un poco más abierto que los hombros.",
+  "Soltá el seguro y bajá la barra hasta rozar el pecho.",
+  "Empujá hacia arriba hasta extender los brazos.",
+  "Repetí las veces indicadas y trabá la barra al terminar."
+ ],
+ "Machine_Bench_Press": [
+  "Sentate en la máquina con la espalda apoyada y tomá las manijas a la altura del pecho.",
+  "Empujá las manijas hacia adelante hasta extender los brazos.",
+  "Volvé lento sin que las pesas se apoyen.",
+  "Repetí las veces indicadas."
+ ],
+ "Leverage_Chest_Press": [
+  "Sentate en la máquina con la espalda apoyada y las manijas a la altura del pecho.",
+  "Empujá hacia adelante hasta extender los brazos.",
+  "Volvé lento a la posición inicial.",
+  "Repetí las veces indicadas."
+ ],
+ "Machine_Shoulder_Military_Press": [
+  "Sentate en la máquina con la espalda apoyada y las manijas a la altura de los hombros.",
+  "Empujá hacia arriba hasta extender los brazos.",
+  "Bajá lento hasta la altura de los hombros.",
+  "Repetí las veces indicadas."
+ ],
+ "Machine_Bicep_Curl": [
+  "Sentate en la máquina con la parte alta de los brazos apoyada en la almohadilla y tomá las manijas.",
+  "Subí las manijas flexionando los codos hasta contraer los bíceps.",
+  "Bajá lento hasta casi extender los brazos.",
+  "Repetí las veces indicadas."
+ ],
+ "Thigh_Abductor": [
+  "Sentate en la máquina con la espalda apoyada y las piernas contra las almohadillas, por fuera de los muslos.",
+  "Abrí las piernas hacia los costados lo más que puedas.",
+  "Mantené un instante y volvé lento.",
+  "Repetí las veces indicadas."
+ ],
+ "Thigh_Adductor": [
+  "Sentate en la máquina con la espalda apoyada y las piernas contra las almohadillas, por dentro de los muslos.",
+  "Juntá las piernas apretando los aductores.",
+  "Mantené un instante y volvé lento.",
+  "Repetí las veces indicadas."
+ ],
+ "Cable_Shoulder_Press": [
+  "Sentate o parate entre las poleas bajas y tomá las manijas a la altura de los hombros.",
+  "Empujá hacia arriba hasta extender los brazos.",
+  "Bajá lento hasta los hombros.",
+  "Repetí las veces indicadas."
+ ],
+ "Pallof_Press": [
+  "Parate de costado a una polea a la altura del pecho y sostené la manija con ambas manos frente al pecho.",
+  "Empujá la manija hacia adelante hasta extender los brazos, resistiendo la rotación del torso.",
+  "Volvé al pecho lento.",
+  "Repetí las veces indicadas y cambiá de lado."
+ ],
+ "Standing_Cable_Wood_Chop": [
+  "Parate de costado a una polea alta y tomá la manija con ambas manos.",
+  "Jalá la manija en diagonal hacia abajo y a través del cuerpo, girando el torso.",
+  "Volvé lento a la posición inicial.",
+  "Repetí las veces indicadas y cambiá de lado."
+ ],
+ "Farmers_Walk": [
+  "Tomá una mancuerna pesada en cada mano y parate derecho, con los hombros atrás.",
+  "Caminá con pasos cortos y firmes, sin inclinarte.",
+  "Recorré la distancia o el tiempo indicado y apoyá los pesos con control."
+ ],
+ "Barbell_Rear_Delt_Row": [
+  "Parate con los pies al ancho de los hombros y tomá la barra con agarre prono ancho.",
+  "Inclinate hacia adelante con la espalda recta.",
+  "Jalá la barra hacia la parte alta del pecho abriendo los codos hacia afuera.",
+  "Bajá lento y repetí."
+ ],
+ "Bent-Arm_Barbell_Pullover": [
+  "Acostate en un banco plano con una barra en las manos, brazos extendidos sobre el pecho.",
+  "Flexioná apenas los codos y bajá la barra detrás de la cabeza, en arco.",
+  "Volvé hasta el pecho usando los dorsales y el pecho.",
+  "Repetí las veces indicadas."
+ ],
+ "Straight-Arm_Dumbbell_Pullover": [
+  "Acostate transversalmente en un banco con una mancuerna sostenida con ambas manos sobre el pecho.",
+  "Con los brazos casi rectos, bajá la mancuerna detrás de la cabeza hasta sentir el estiramiento.",
+  "Volvé por el mismo arco hasta la posición inicial.",
+  "Repetí las veces indicadas."
+ ],
+ "Bench_Press_-_Powerlifting": [
+  "Acostate en el banco con los omóplatos juntos, la espalda levemente arqueada y los pies firmes en el piso.",
+  "Sacá la barra y bajala controlada hasta el pecho bajo.",
+  "Empujá con fuerza empujando también el piso con los pies, hasta extender los brazos.",
+  "Repetí las veces indicadas."
+ ],
+ "Box_Squat": [
+  "Colocá un cajón detrás de vos y la barra sobre la espalda, con los pies más abiertos que los hombros.",
+  "Bajá llevando la cadera atrás hasta sentarte sobre el cajón, manteniendo la espalda recta.",
+  "Hacé una breve pausa y subí empujando con los talones.",
+  "Repetí las veces indicadas."
+ ],
+ "Overhead_Squat": [
+  "Sostené la barra sobre la cabeza con agarre ancho y los brazos extendidos.",
+  "Con los pies al ancho de los hombros, bajá en sentadilla manteniendo la barra sobre los talones.",
+  "Subí empujando con los talones, con los brazos siempre extendidos.",
+  "Repetí las veces indicadas."
+ ],
+ "Zercher_Squats": [
+  "Sostené la barra en la parte interna de los codos, pegada al abdomen.",
+  "Con los pies al ancho de los hombros, bajá en sentadilla con el torso erguido.",
+  "Subí empujando con los talones hasta quedar de pie.",
+  "Repetí las veces indicadas."
+ ],
+ "Chest_And_Front_Of_Shoulder_Stretch": [
+  "Parate junto a una pared y apoyá el antebrazo en ella, con el codo a la altura del hombro.",
+  "Girá el torso en sentido contrario hasta sentir el estiramiento en el pecho.",
+  "Mantené 20 a 30 segundos y cambiá de lado."
+ ],
+ "Hamstring_Stretch": [
+  "Acostate boca arriba y elevá una pierna extendida, sosteniéndola detrás del muslo.",
+  "Acercala hacia vos hasta sentir el estiramiento en la parte trasera del muslo.",
+  "Mantené 20 a 30 segundos y cambiá de pierna."
+ ],
+ "Quad_Stretch": [
+  "De pie, flexioná una rodilla y tomá el pie con la mano del mismo lado.",
+  "Llevá el talón hacia el glúteo, con las rodillas juntas y el torso erguido.",
+  "Mantené 20 a 30 segundos y cambiá de pierna."
+ ],
+ "Childs_Pose": [
+  "Arrodillate en el piso, sentate sobre los talones y llevá el torso hacia adelante con los brazos extendidos.",
+  "Apoyá la frente en el piso y relajá la espalda.",
+  "Mantené la posición 20 a 30 segundos respirando profundo."
+ ],
+ "Cat_Stretch": [
+  "Ponete en cuatro apoyos con las manos bajo los hombros y las rodillas bajo la cadera.",
+  "Redondeá la espalda hacia arriba, metiendo el mentón hacia el pecho.",
+  "Mantené unos segundos y volvé a la posición neutra.",
+  "Repetí lento varias veces."
+ ],
+ "Standing_Gastrocnemius_Calf_Stretch": [
+  "Parate frente a una pared con las manos apoyadas en ella y una pierna adelantada.",
+  "Mantené la pierna de atrás extendida con el talón apoyado en el piso.",
+  "Inclinate hacia la pared hasta sentir el estiramiento en el gemelo.",
+  "Mantené 20 a 30 segundos y cambiá de pierna."
+ ],
+ "Triceps_Stretch": [
+  "De pie, llevá un brazo sobre la cabeza y flexioná el codo, con la mano detrás de la nuca.",
+  "Con la otra mano, empujá suavemente el codo hacia abajo y atrás.",
+  "Mantené 20 a 30 segundos y cambiá de brazo."
+ ],
+ "Shoulder_Stretch": [
+  "De pie, cruzá un brazo extendido por delante del pecho.",
+  "Con la otra mano, acercalo al cuerpo hasta sentir el estiramiento en el hombro.",
+  "Mantené 20 a 30 segundos y cambiá de brazo."
+ ],
+ "Seated_Floor_Hamstring_Stretch": [
+  "Sentate en el piso con las piernas extendidas al frente.",
+  "Inclinate hacia adelante desde la cadera con la espalda recta, intentando tomar los pies.",
+  "Mantené 20 a 30 segundos respirando profundo."
+ ],
+ "Standing_Hip_Flexors": [
+  "De pie, dá un paso largo hacia adelante y flexioná la rodilla delantera.",
+  "Bajá la cadera hacia adelante, manteniendo el torso erguido, hasta sentir el estiramiento en la cadera de la pierna de atrás.",
+  "Mantené 20 a 30 segundos y cambiá de lado."
+ ],
+ "Kneeling_Hip_Flexor": [
+  "Arrodillate sobre una rodilla con el otro pie adelante, formando 90 grados.",
+  "Empujá suavemente la cadera hacia adelante, con el torso erguido.",
+  "Mantené 20 a 30 segundos y cambiá de lado."
+ ],
+ "Piriformis-SMR": [
+  "Sentate sobre un rodillo de espuma con una pierna cruzada sobre la rodilla opuesta.",
+  "Rodá lento sobre el glúteo hasta encontrar un punto sensible.",
+  "Mantené la presión unos segundos y seguí rodando 30 a 60 segundos. Cambiá de lado."
+ ]
+}
