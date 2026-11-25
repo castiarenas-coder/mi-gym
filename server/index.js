@@ -24,7 +24,7 @@ try { sembrarPlantillas(db); } catch (err) { console.error('[plantillas]', err.m
 let cerrar = () => {};
 const app = createApp({
   db, imgDir: config.imgDir, mediaDir: config.mediaDir, clientDir: config.clientDir, version: leerVersion(config.raiz),
-  dbFile: path.resolve(config.dbFile), backupsDir: config.backupsDir, lan, port: config.port, plataforma: config.plataforma,
+  dbFile: path.resolve(config.dbFile), backupsDir: config.backupsDir, lan, port: config.port, plataforma: config.plataforma, token: config.token,
   // Solo la versión instalada en PC ofrece "Cerrar Mi Gym" (no hay consola desde la que cortarlo); en Android no tiene sentido.
   apagar: config.instalado && config.plataforma !== 'android' ? () => cerrar() : null,
 });

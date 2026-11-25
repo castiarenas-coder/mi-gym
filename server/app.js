@@ -13,6 +13,7 @@ import { versionActual } from './db.js';
 import { conPersona, personasRouter } from './personas.js';
 import { crearComprobador } from './actualizacion.js';
 import { esLoopback } from './puerto.js';
+import { controlDeAcceso } from './acceso.js';
 
 export function leerVersion(raiz) {
   try { return JSON.parse(fs.readFileSync(path.join(raiz, 'package.json'), 'utf8')).version; } catch { return '0.0.0'; }
@@ -24,10 +25,11 @@ export function direccionesLan(port) {
     .map(i => `http://${i.address}:${port}`);
 }
 
-export function createApp({ db, imgDir, mediaDir, clientDir, version = '0.0.0', ahora = () => new Date(), dbFile = null, backupsDir = null, lan = false, port = 0, plataforma = 'escritorio', direcciones = direccionesLan, actualizacion = null, apagar = null }) {
+export function createApp({ db, imgDir, mediaDir, clientDir, version = '0.0.0', ahora = () => new Date(), dbFile = null, backupsDir = null, lan = false, port = 0, plataforma = 'escritorio', token = null, direcciones = direccionesLan, actualizacion = null, apagar = null }) {
   const comprobarActualizacion = actualizacion ?? crearComprobador({ version });
   const app = express();
   app.disable('x-powered-by');
+  if (token) app.use(controlDeAcceso(token));
   app.use(compression());
   // La importación de un respaldo puede pesar más que el resto de los cuerpos JSON.
   app.use('/api/respaldo/importar', express.json({ limit: '30mb' }));
