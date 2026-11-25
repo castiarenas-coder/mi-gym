@@ -26,4 +26,11 @@ describe('escala de gráficos', () => {
     const e = escala([0, 0], 4, { desdeCero: true })
     expect(e.max).toBeGreaterThan(e.min)
   })
+
+  it('con enteros las marcas nunca tienen decimales', () => {
+    const e = escala([0, 1, 2], 4, { desdeCero: true, entero: true })
+    expect(e.ticks.every(Number.isInteger)).toBe(true)
+    expect(e.max).toBeGreaterThanOrEqual(2)
+    expect(escala([0, 0], 4, { desdeCero: true, entero: true }).ticks.every(Number.isInteger)).toBe(true)
+  })
 })

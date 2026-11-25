@@ -8,7 +8,7 @@ function pasoLindo(bruto: number): number {
 }
 
 /** Escala con marcas "lindas" (1, 2, 2.5, 5 × 10ⁿ) que abarca todos los valores. */
-export function escala(valores: number[], marcas = 4, { desdeCero = false }: { desdeCero?: boolean } = {}): Escala {
+export function escala(valores: number[], marcas = 4, { desdeCero = false, entero = false }: { desdeCero?: boolean; entero?: boolean } = {}): Escala {
   let min = desdeCero ? 0 : Math.min(...valores)
   let max = Math.max(...valores)
   if (!Number.isFinite(min) || !Number.isFinite(max)) { min = 0; max = 1 }
@@ -17,7 +17,7 @@ export function escala(valores: number[], marcas = 4, { desdeCero = false }: { d
     max += margen
     if (!desdeCero) min -= margen
   }
-  const paso = pasoLindo((max - min) / marcas)
+  const paso = entero ? Math.max(1, Math.ceil(pasoLindo((max - min) / marcas))) : pasoLindo((max - min) / marcas)
   const lo = desdeCero ? 0 : Math.floor(min / paso) * paso
   const hi = Math.ceil(max / paso) * paso
   const ticks: number[] = []

@@ -42,6 +42,7 @@ export function TabResumen() {
         <p className="bloque__ayuda">Últimas 12 semanas (cada semana empieza el lunes).</p>
         <GraficoBarras
           titulo="Entrenamientos por semana"
+          enteros
           datos={r.semanas.map(s => ({ etiqueta: fechaCorta(s.inicio), valor: s.sesiones, detalle: `Semana del ${fechaCorta(s.inicio)}: ${plural(s.sesiones, 'entrenamiento', 'entrenamientos')}` }))}
         />
       </section>

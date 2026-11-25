@@ -8,6 +8,8 @@ interface Props {
   titulo: string
   datos: DatoBarra[]
   vacio?: string
+  /** Para conteos: las marcas del eje son enteras. */
+  enteros?: boolean
 }
 
 const W = 640
@@ -15,14 +17,14 @@ const H = 240
 const M = { arriba: 14, derecha: 12, abajo: 32, izquierda: 44 }
 
 /** Barras en SVG, accesibles: cada barra es un botón con su descripción completa. */
-export function GraficoBarras({ titulo, datos, vacio }: Props) {
+export function GraficoBarras({ titulo, datos, vacio, enteros = false }: Props) {
   const [activo, setActivo] = useState<number | null>(null)
 
   if (datos.length === 0 || datos.every(d => d.valor === 0)) {
     return <div className="grafico grafico--vacio"><p className="aviso">{vacio ?? 'Todavía no hay datos para mostrar.'}</p></div>
   }
 
-  const e = escala(datos.map(d => d.valor), 4, { desdeCero: true })
+  const e = escala(datos.map(d => d.valor), 4, { desdeCero: true, entero: enteros })
   const ancho = W - M.izquierda - M.derecha
   const alto = H - M.arriba - M.abajo
   const paso = ancho / datos.length
