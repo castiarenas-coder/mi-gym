@@ -34,6 +34,21 @@ describe('página Ajustes', () => {
     expect(within(lista).getByText(/mi_gym-20261125-1200\.db/)).toBeInTheDocument()
   })
 
+  it('muestra cómo donar: alias de Mercado Pago copiable y link de PayPal', async () => {
+    const user = userEvent.setup()
+    api()
+    verApp('/ajustes')
+    const bloque = await screen.findByRole('region', { name: 'Donaciones' })
+    expect(within(bloque).getByText('gabycasti822.mp')).toBeInTheDocument()
+    await user.click(within(bloque).getByRole('button', { name: /Copiar alias/ }))
+    expect(await navigator.clipboard.readText()).toBe('gabycasti822.mp')
+    expect(await within(bloque).findByText('Alias copiado')).toBeInTheDocument()
+    const paypal = within(bloque).getByRole('link', { name: /PayPal/ })
+    expect(paypal).toHaveAttribute('href', 'https://www.paypal.com/donate/?hosted_button_id=6G237RH4W2GRQ')
+    expect(paypal).toHaveAttribute('target', '_blank')
+    expect(paypal).toHaveAttribute('rel', expect.stringContaining('noopener'))
+  })
+
   it('hace un backup ahora', async () => {
     const { llamadas } = api()
     verApp('/ajustes')

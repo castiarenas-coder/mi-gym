@@ -2,6 +2,8 @@
 
 Tu gimnasio en tu PC: ejercicios, rutinas y progreso, todo en español, sin cuentas, sin suscripciones y sin mandar tus datos a ningún lado.
 
+> ¿Te sirve? Podés apoyar el proyecto en [Donaciones](#donaciones) 💚
+
 ## Qué hace
 
 - **Catálogo de 876 ejercicios en español**, con animación (fotos), músculos, equipo y pasos explicados.
@@ -96,6 +98,15 @@ Protección contra pérdidas, de menos a más segura:
 - **Desde la app**: **Ajustes → Tus datos**, elegí un respaldo de la lista y tocá **Restaurar**. Antes de reemplazar nada la app guarda un respaldo de lo que tenías, así que se puede deshacer.
 - **Desde un archivo exportado**: **Ajustes → Importar desde un archivo**. También hace un respaldo previo. Solo acepta archivos de la misma versión de la app; si es más vieja, restaurá un respaldo de la lista.
 - **Desde la consola** (con el servidor apagado): `npm run backup` hace uno ahora y `npm run restore` vuelve al más reciente (o `npm run restore -- ruta/al/archivo.db`).
+
+## Donaciones
+
+Mi Gym es gratis y de código abierto. Si te sirve y querés apoyar el proyecto, podés donar lo que quieras:
+
+- **Mercado Pago** (Argentina): alias **`gabycasti822.mp`**
+- **PayPal**: [Donar con PayPal](https://www.paypal.com/donate/?hosted_button_id=6G237RH4W2GRQ)
+
+¡Gracias! También ayuda mucho dejar una ⭐ en el repo o contar qué mejorarías en [Issues](https://github.com/castiarenas-coder/mi-gym/issues).
 
 ## Licencia
 

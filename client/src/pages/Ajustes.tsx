@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Download, Pencil, Plus, RotateCcw, Save, Trash2, Upload } from 'lucide-react'
+import { Copy, Download, Heart, Pencil, Plus, RotateCcw, Save, Trash2, Upload } from 'lucide-react'
 import { useBorrarPersona, useCrearPersona, useEditarPersona, type Persona } from '../api/personas'
 import { usePersonaActiva } from '../app/PersonaContext'
 import { AvatarPersona } from '../components/AvatarPersona'
@@ -13,6 +13,37 @@ function fechaHora(iso: string) {
 
 function tamano(bytes: number) {
   return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`
+}
+
+export const ALIAS_MP = 'gabycasti822.mp'
+export const PAYPAL_URL = 'https://www.paypal.com/donate/?hosted_button_id=6G237RH4W2GRQ'
+
+/** Donaciones voluntarias: alias de Mercado Pago para copiar y botón de PayPal. */
+function SeccionDonaciones() {
+  const [copiado, setCopiado] = useState(false)
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(ALIAS_MP)
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 2500)
+    } catch { /* sin portapapeles: el alias queda visible para copiarlo a mano */ }
+  }
+  return (
+    <section className="tarjeta bloque" aria-labelledby="aj-donar">
+      <h2 id="aj-donar" className="bloque__titulo">Donaciones</h2>
+      <p className="bloque__ayuda">Mi Gym es gratis y de código abierto. Si te sirve y querés apoyar el proyecto, podés donar lo que quieras.</p>
+      <p className="bloque__ayuda">Mercado Pago (alias): <strong style={{ userSelect: 'all' }}>{ALIAS_MP}</strong></p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <button type="button" className="boton boton--secundario" onClick={copiar}>
+          <Copy size={18} aria-hidden="true" /> Copiar alias
+        </button>
+        <a className="boton boton--principal" href={PAYPAL_URL} target="_blank" rel="noopener noreferrer">
+          <Heart size={18} aria-hidden="true" /> Donar con PayPal
+        </a>
+      </div>
+      {copiado && <p className="bloque__ayuda" role="status">Alias copiado</p>}
+    </section>
+  )
 }
 
 /** Alta, edición y baja de personas: cada una tiene sus rutinas, entrenamientos, medidas y favoritos. */
@@ -168,6 +199,8 @@ export function Ajustes() {
         <p className="bloque__ayuda">Mi Gym {i ? `versión ${i.version}` : ''}</p>
         <p className="bloque__ayuda">Catálogo de ejercicios: free-exercise-db, de dominio público. Inspirado en doubtcrack/Fitness (licencia MIT).</p>
       </section>
+
+      <SeccionDonaciones />
 
       {aRestaurar && (
         <ConfirmarDialogo
