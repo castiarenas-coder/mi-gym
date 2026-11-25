@@ -33,7 +33,7 @@ export function createApp({ db, imgDir, mediaDir, clientDir, version = '0.0.0', 
   app.use('/api/respaldo/importar', express.json({ limit: '30mb' }));
   app.use(express.json({ limit: '1mb' }));
 
-  app.get('/api/salud', (_req, res) => res.json({ ok: true, version }));
+  app.get('/api/salud', (_req, res) => res.json({ ok: true, app: 'mi-gym', version }));
   // Datos para la pantalla de Ajustes: dónde viven los datos, último respaldo y cómo abrir desde el celular.
   app.get('/api/info', async (_req, res) => {
     const respaldos = backupsDir ? listarArchivos(backupsDir) : [];

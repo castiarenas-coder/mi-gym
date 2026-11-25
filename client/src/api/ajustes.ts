@@ -11,7 +11,11 @@ export interface Info {
   lan: boolean
   urls: string[]
   qr: string | null
+  /** La versión instalada permite cerrar el servidor desde la app. */
+  apagable?: boolean
 }
+
+export interface Actualizacion { actual: string; ultima: string | null; hay_nueva: boolean; url: string | null }
 
 export interface Respaldo { archivo: string; fecha: string; tamano: number }
 
@@ -46,4 +50,13 @@ export function useImportar() {
     mutationFn: (datos: unknown) => enviar<{ ok: true }>('POST', '/respaldo/importar', datos),
     onSuccess: () => renovarTodo(qc),
   })
+}
+
+/** Compara con la última versión publicada en GitHub; sin internet simplemente no hay aviso. */
+export function useActualizacion() {
+  return useQuery({ queryKey: ['actualizacion'], queryFn: () => api<Actualizacion>('/actualizacion'), staleTime: 60 * 60 * 1000, retry: false })
+}
+
+export function useApagar() {
+  return useMutation({ mutationFn: () => enviar<{ ok: true }>('POST', '/apagar') })
 }

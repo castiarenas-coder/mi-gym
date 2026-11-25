@@ -9,7 +9,7 @@ after(() => s.cerrar());
 test('GET /api/salud', async () => {
   const r = await s.pedir('/api/salud');
   assert.equal(r.status, 200);
-  assert.deepEqual(r.json, { ok: true, version: '9.9.9' });
+  assert.deepEqual(r.json, { ok: true, app: 'mi-gym', version: '9.9.9' });
 });
 
 test('lista todos con total, y sin instrucciones', async () => {

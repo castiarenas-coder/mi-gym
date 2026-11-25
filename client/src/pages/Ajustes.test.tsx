@@ -8,9 +8,13 @@ const INFO = {
 }
 const LISTA = [{ archivo: 'mi_gym-20261125-1200.db', fecha: '2026-11-25T12:00:00.000Z', tamano: 2048 }]
 
-function api(info: typeof INFO = INFO) {
+const SIN_NUEVA = { actual: '0.1.0', ultima: '0.1.0', hay_nueva: false, url: null as string | null }
+
+function api(info: Record<string, unknown> = INFO, actualizacion: typeof SIN_NUEVA = SIN_NUEVA) {
   return instalarApi((metodo, url) => {
     if (url.pathname === '/api/info') return info
+    if (url.pathname === '/api/actualizacion') return actualizacion
+    if (url.pathname === '/api/apagar' && metodo === 'POST') return { ok: true }
     if (url.pathname === '/api/respaldo/lista') return LISTA
     if (url.pathname === '/api/respaldo/ahora' && metodo === 'POST') return { archivo: 'mi_gym-20261125-1300.db' }
     if (url.pathname === '/api/respaldo/restaurar' && metodo === 'POST') return { ok: true }
@@ -108,5 +112,39 @@ describe('página Ajustes', () => {
     expect(await screen.findByText(/versión 0\.1\.0/)).toBeInTheDocument()
     expect(screen.getByText(/free-exercise-db/)).toBeInTheDocument()
     expect(screen.getByText(/doubtcrack\/Fitness/)).toBeInTheDocument()
+  })
+
+  it('avisa cuando hay una versión nueva, con link para descargarla', async () => {
+    api(INFO, { actual: '0.1.0', ultima: '0.2.0', hay_nueva: true, url: 'https://github.com/castiarenas-coder/mi-gym/releases/tag/v0.2.0' })
+    verApp('/ajustes')
+    expect(await screen.findByText(/Hay una versión nueva: v0\.2\.0/)).toBeInTheDocument()
+    const link = screen.getByRole('link', { name: /Descargar/ })
+    expect(link).toHaveAttribute('href', 'https://github.com/castiarenas-coder/mi-gym/releases/tag/v0.2.0')
+    expect(link).toHaveAttribute('target', '_blank')
+  })
+
+  it('no muestra el aviso si ya tenés la última versión', async () => {
+    const { llamadas } = api()
+    verApp('/ajustes')
+    await screen.findByText(/versión 0\.1\.0/)
+    await waitFor(() => expect(llamadas.some(l => l.ruta === '/api/actualizacion')).toBe(true))
+    expect(screen.queryByText(/Hay una versión nueva/)).not.toBeInTheDocument()
+  })
+
+  it('"Cerrar Mi Gym" solo aparece en la versión instalada y pide confirmación', async () => {
+    api()
+    const { unmount } = verApp('/ajustes')
+    await screen.findByText(/versión 0\.1\.0/)
+    expect(screen.queryByRole('button', { name: /Cerrar Mi Gym/ })).not.toBeInTheDocument()
+    unmount()
+
+    const { llamadas } = api({ ...INFO, apagable: true })
+    verApp('/ajustes')
+    await userEvent.click(await screen.findByRole('button', { name: /Cerrar Mi Gym/ }))
+    const dialogo = await screen.findByRole('dialog')
+    expect(llamadas.some(l => l.ruta === '/api/apagar')).toBe(false)
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Cerrar' }))
+    await waitFor(() => expect(llamadas.some(l => l.metodo === 'POST' && l.ruta === '/api/apagar')).toBe(true))
+    expect(await screen.findByText(/Mi Gym se cerró/)).toBeInTheDocument()
   })
 })

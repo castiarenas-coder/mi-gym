@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react'
-import { Copy, Download, Heart, Pencil, Plus, RotateCcw, Save, Trash2, Upload } from 'lucide-react'
+import { Copy, Download, Heart, Pencil, Plus, Power, RotateCcw, Save, Trash2, Upload } from 'lucide-react'
 import { useBorrarPersona, useCrearPersona, useEditarPersona, type Persona } from '../api/personas'
 import { usePersonaActiva } from '../app/PersonaContext'
 import { AvatarPersona } from '../components/AvatarPersona'
 import { FormularioPersona } from '../components/FormularioPersona'
-import { useImportar, useInfo, useRespaldoAhora, useRespaldos, useRestaurar, type Respaldo } from '../api/ajustes'
+import { useActualizacion, useApagar, useImportar, useInfo, useRespaldoAhora, useRespaldos, useRestaurar, type Respaldo } from '../api/ajustes'
 import { ConfirmarDialogo } from '../components/ConfirmarDialogo'
 
 function fechaHora(iso: string) {
@@ -108,6 +108,10 @@ export function Ajustes() {
   const ahora = useRespaldoAhora()
   const restaurar = useRestaurar()
   const importar = useImportar()
+  const actualizacion = useActualizacion()
+  const apagar = useApagar()
+  const [aCerrar, setACerrar] = useState(false)
+  const [cerrada, setCerrada] = useState(false)
   const [aRestaurar, setARestaurar] = useState<Respaldo | null>(null)
   const [aImportar, setAImportar] = useState<unknown>(null)
   const [mensaje, setMensaje] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null)
@@ -197,11 +201,35 @@ export function Ajustes() {
       <section className="tarjeta bloque" aria-labelledby="aj-acerca">
         <h2 id="aj-acerca" className="bloque__titulo">Acerca de</h2>
         <p className="bloque__ayuda">Mi Gym {i ? `versión ${i.version}` : ''}</p>
+        {actualizacion.data?.hay_nueva && (
+          <p className="aviso" role="status">
+            Hay una versión nueva: v{actualizacion.data.ultima} —{' '}
+            <a href={actualizacion.data.url ?? 'https://github.com/castiarenas-coder/mi-gym/releases/latest'} target="_blank" rel="noopener noreferrer">Descargar</a>
+          </p>
+        )}
         <p className="bloque__ayuda">Catálogo de ejercicios: free-exercise-db, de dominio público. Inspirado en doubtcrack/Fitness (licencia MIT).</p>
+        {i?.apagable && (
+          cerrada ? <p className="aviso" role="status">Mi Gym se cerró. Ya podés cerrar esta ventana.</p> : (
+            <>
+              <button type="button" className="boton boton--secundario" onClick={() => setACerrar(true)}><Power size={18} aria-hidden /> Cerrar Mi Gym</button>
+              <p className="bloque__ayuda">Apaga Mi Gym por completo. Para volver a usarlo, abrilo de nuevo desde su acceso directo.</p>
+            </>
+          )
+        )}
       </section>
 
       <SeccionDonaciones />
 
+      {aCerrar && (
+        <ConfirmarDialogo
+          titulo="¿Cerrar Mi Gym?"
+          mensaje="Se apaga la app. Tus datos quedan guardados; para volver a usarla, abrila desde el acceso directo."
+          confirmar="Cerrar"
+          ocupado={apagar.isPending}
+          onConfirmar={() => apagar.mutate(undefined, { onSuccess: () => { setACerrar(false); setCerrada(true) }, onError: () => setACerrar(false) })}
+          onCancelar={() => setACerrar(false)}
+        />
+      )}
       {aRestaurar && (
         <ConfirmarDialogo
           titulo="¿Restaurar este respaldo?"
