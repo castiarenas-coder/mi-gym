@@ -17,7 +17,34 @@ Tu gimnasio en tu PC: ejercicios, rutinas y progreso, todo en español, sin cuen
 - **Backups**: respaldo automático, exportar/importar a archivo y restaurar.
 - Funciona también desde el celular, con el wifi de tu casa.
 
-## Instalación rápida
+## Descargar e instalar (Windows)
+
+La forma más fácil, sin comandos ni nada que instalar antes:
+
+1. Entrá a [Releases](https://github.com/castiarenas-coder/mi-gym/releases/latest) y bajá **Mi-Gym-Setup-x.y.z.exe**.
+2. Hacé doble clic en el archivo y seguí los pasos (son pocos). No pide permisos de administrador.
+3. Al terminar, tocá **Abrir Mi Gym**. Después lo encontrás en el menú Inicio (y en el Escritorio, si lo tildaste).
+
+El catálogo de 876 ejercicios con sus fotos ya viene adentro: **no necesita internet** para funcionar.
+
+**Si Windows muestra "Windows protegió su PC":** es normal, el instalador todavía no tiene firma digital paga. Tocá **Más información** y después **Ejecutar de todas formas**.
+
+- **Dónde quedan tus datos:** en `%APPDATA%\Mi Gym` (pegá eso en la barra del Explorador de archivos). Ahí están la base, tus fotos/GIF y los respaldos.
+- **Cómo actualizar:** en **Ajustes → Acerca de** la app avisa cuando hay una versión nueva. Bajá el instalador nuevo y ejecutalo: se instala encima y **no toca tus datos**.
+- **Cómo cerrarlo:** **Ajustes → Cerrar Mi Gym**. Si solo cerrás la ventana, el programa sigue en segundo plano (casi no consume) y se abre más rápido la próxima vez.
+- **Cómo desinstalar:** Configuración de Windows → Aplicaciones → Mi Gym. Tus datos **no se borran**; si ya no los querés, borrá la carpeta `%APPDATA%\Mi Gym`.
+
+### Armar el instalador (para quien desarrolla)
+
+Requiere [Inno Setup 6](https://jrsoftware.org/isinfo.php) y haber corrido `npm run importar` una vez (para tener las fotos originales). Después:
+
+```bash
+npm run instalador   # deja release/Mi-Gym-Setup-<versión>.exe
+```
+
+Compila la interfaz, convierte el catálogo (fotos a WebP de hasta 480 px, unos 23 MB en total), baja Node 22 portátil verificando su SHA256 y compila el instalador. El Node portátil se guarda en `.cache/node/`.
+
+## Instalación para desarrolladores
 
 Requisitos: [Node.js](https://nodejs.org) 22 o más nuevo (22.19+).
 
