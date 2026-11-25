@@ -13,7 +13,14 @@ export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(appVersion) },
   server: {
     port: 5174,
-    proxy: { '/api': backend, '/img': backend, '/media': backend },
+    // El servidor solo atiende Host/Origin propios: el proxy los reescribe al del backend.
+    proxy: Object.fromEntries(['/api', '/img', '/media'].map(ruta => [ruta, {
+      target: backend,
+      changeOrigin: true,
+      configure: (proxy: { on: (e: 'proxyReq', f: (r: { getHeader: (n: string) => unknown; setHeader: (n: string, v: string) => void }) => void) => void }) => {
+        proxy.on('proxyReq', req => { if (req.getHeader('origin')) req.setHeader('origin', backend) })
+      },
+    }])),
   },
   build: { outDir: 'dist', sourcemap: false, chunkSizeWarningLimit: 700 },
   test: {

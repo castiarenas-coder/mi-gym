@@ -7,6 +7,9 @@ function cabeceraPersona(): Record<string, string> {
   return id === null ? {} : { 'X-Persona': String(id) }
 }
 
+// Los cambios sin esta cabecera los rechaza el servidor: una página ajena no puede mandarla sin permiso (CORS).
+const CABECERA_APP = { 'X-Mi-Gym': '1' }
+
 async function leer<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const cuerpo = (await res.json().catch(() => null)) as { error?: string } | null
@@ -18,7 +21,7 @@ async function leer<T>(res: Response): Promise<T> {
 export async function api<T>(ruta: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${ruta}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...cabeceraPersona(), ...init?.headers },
+    headers: { 'Content-Type': 'application/json', ...CABECERA_APP, ...cabeceraPersona(), ...init?.headers },
   })
   return leer<T>(res)
 }
@@ -29,6 +32,6 @@ export function enviar<T>(metodo: 'POST' | 'PATCH' | 'PUT' | 'DELETE', ruta: str
 
 /** Sube un archivo como cuerpo crudo; el servidor lee el tipo del Content-Type. */
 export async function subirArchivo<T>(ruta: string, archivo: File): Promise<T> {
-  const res = await fetch(`/api${ruta}`, { method: 'POST', headers: { 'Content-Type': archivo.type, ...cabeceraPersona() }, body: archivo })
+  const res = await fetch(`/api${ruta}`, { method: 'POST', headers: { 'Content-Type': archivo.type, ...CABECERA_APP, ...cabeceraPersona() }, body: archivo })
   return leer<T>(res)
 }

@@ -13,7 +13,7 @@ import { versionActual } from './db.js';
 import { conPersona, personasRouter } from './personas.js';
 import { crearComprobador } from './actualizacion.js';
 import { esLoopback } from './puerto.js';
-import { controlDeAcceso } from './acceso.js';
+import { controlDeAcceso, protegerPedidos } from './acceso.js';
 
 export function leerVersion(raiz) {
   try { return JSON.parse(fs.readFileSync(path.join(raiz, 'package.json'), 'utf8')).version; } catch { return '0.0.0'; }
@@ -29,6 +29,7 @@ export function createApp({ db, imgDir, mediaDir, clientDir, version = '0.0.0', 
   const comprobarActualizacion = actualizacion ?? crearComprobador({ version });
   const app = express();
   app.disable('x-powered-by');
+  app.use(protegerPedidos({ lan, direcciones }));
   if (token) app.use(controlDeAcceso(token));
   app.use(compression());
   // La importación de un respaldo puede pesar más que el resto de los cuerpos JSON.

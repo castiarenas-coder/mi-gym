@@ -12,8 +12,8 @@ export async function servidorDePrueba(opts = {}) {
   const base = `http://127.0.0.1:${server.address().port}`;
   const pedir = async (ruta, init = {}) => {
     const res = await fetch(base + ruta, {
-      ...init,
-      headers: { 'content-type': 'application/json', ...init.headers },
+      ...init, sinMiGym: undefined,
+      headers: { 'content-type': 'application/json', ...(init.sinMiGym ? {} : { 'x-mi-gym': '1' }), ...init.headers },
       body: init.body && typeof init.body !== 'string' ? JSON.stringify(init.body) : init.body,
     });
     const text = await res.text();

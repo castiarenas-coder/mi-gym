@@ -12,7 +12,7 @@ before(async () => {
 });
 after(() => { s.cerrar(); fs.rmSync(dir, { recursive: true, force: true }); });
 
-const subir = (id, tipo, cuerpo) => fetch(`${s.base}/api/ejercicios/${id}/media`, { method: 'POST', headers: { 'content-type': tipo }, body: cuerpo });
+const subir = (id, tipo, cuerpo) => fetch(`${s.base}/api/ejercicios/${id}/media`, { method: 'POST', headers: { 'content-type': tipo, 'x-mi-gym': '1' }, body: cuerpo });
 
 test('sube un GIF, lo guarda en disco, lo sirve en /media y fija media_propia', async () => {
   const bytes = Buffer.from('GIF89a-prueba');
@@ -55,7 +55,7 @@ test('rechaza archivos de más de 30 MB', async () => {
 
 test('DELETE quita el archivo y limpia media_propia', async () => {
   await subir('Bench_Press', 'image/gif', Buffer.from('g'));
-  const r = await fetch(`${s.base}/api/ejercicios/Bench_Press/media`, { method: 'DELETE' });
+  const r = await fetch(`${s.base}/api/ejercicios/Bench_Press/media`, { method: 'DELETE', headers: { 'x-mi-gym': '1' } });
   assert.equal(r.status, 200);
   assert.equal((await r.json()).media_propia, null);
   assert.ok(!fs.existsSync(path.join(dir, 'media', 'Bench_Press.gif')));
@@ -63,6 +63,6 @@ test('DELETE quita el archivo y limpia media_propia', async () => {
 
 test('DELETE también limpia un link externo sin tocar el disco', async () => {
   await s.pedir('/api/ejercicios/Quad_Stretch', { method: 'PATCH', body: { media_propia: 'https://youtu.be/abc' } });
-  const r = await fetch(`${s.base}/api/ejercicios/Quad_Stretch/media`, { method: 'DELETE' });
+  const r = await fetch(`${s.base}/api/ejercicios/Quad_Stretch/media`, { method: 'DELETE', headers: { 'x-mi-gym': '1' } });
   assert.equal((await r.json()).media_propia, null);
 });
