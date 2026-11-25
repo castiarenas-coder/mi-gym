@@ -1,0 +1,29 @@
+{
+  "name": "mi-gym",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mi Gym: ejercicios, rutinas y progreso, todo en español y guardado en tu PC.",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "lan": "node server/index.js --lan",
+    "dev": "concurrently -k -n servidor,web -c yellow,blue \"node --watch server/index.js\" \"npm --prefix client run dev\"",
+    "test": "node --test test/*.test.js",
+    "test:client": "npm --prefix client test",
+    "build": "npm --prefix client run build",
+    "postinstall": "npm --prefix client install",
+    "backup": "node server/backup.js",
+    "restore": "node server/backup.js restore",
+    "importar": "node scripts/importar-catalogo.js"
+  },
+  "engines": { "node": ">=22.19.0" },
+  "license": "MIT",
+  "dependencies": {
+    "compression": "^1.8.2",
+    "express": "^5.3.0"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  }
+}

@@ -1,0 +1,27 @@
+/* Tokens de diseño "oscuro deportivo". Todo color y medida sale de acá. */
+:root {
+  --fondo: #0b0d10;
+  --superficie: #15181d;
+  --superficie-2: #1d2128;
+  --borde: #262b33;
+  --texto: #f3f5f7;
+  --texto-suave: #98a1ad;
+  --acento: #c6ff3d;
+  --acento-texto: #0b0d10;
+  --acento-2: #ff7a1a;
+  --peligro: #ff4d4d;
+  --ok: #3ddc84;
+
+  --radio-s: 10px;
+  --radio-m: 16px;
+  --radio-l: 24px;
+  --espacio: 16px;
+  --toque: 48px; /* tamaño mínimo de un botón táctil */
+  --alto-nav: 68px;
+  --alto-header: 56px;
+  --ancho-max: 1100px;
+
+  --fuente-titulo: 'Unbounded Variable', 'Unbounded', system-ui, sans-serif;
+  --fuente-texto: 'Manrope Variable', 'Manrope', system-ui, sans-serif;
+  --sombra: 0 8px 24px rgb(0 0 0 / 45%);
+}
