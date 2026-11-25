@@ -265,3 +265,16 @@ test('PATCH de nota sin finalizar y validaciones', async () => {
   assert.equal((await s.pedir('/api/sesiones/9999', { method: 'PATCH', body: { nota: 'a' } })).status, 404);
   await limpiar();
 });
+
+test('al finalizar las series quedan numeradas sin huecos', async () => {
+  await limpiar();
+  const { dia } = await rutinaConDia();
+  const ses = (await s.pedir('/api/sesiones', { method: 'POST', body: { dia_id: dia } })).json;
+  await serie(ses.id, 'Barbell_Squat', 1, { peso_kg: 80, reps: 8, hecha: true });
+  await serie(ses.id, 'Barbell_Squat', 3, { peso_kg: 90, reps: 5, hecha: true }); // la 2 queda sin hacer
+  avanzar(20);
+  const fin = (await s.pedir(`/api/sesiones/${ses.id}`, { method: 'PATCH', body: { finalizar: true } })).json;
+  const sq = fin.ejercicios.find(e => e.ejercicio_id === 'Barbell_Squat');
+  assert.deepEqual(sq.series.map(x => [x.n, x.peso_kg]), [[1, 80], [2, 90]]);
+  await limpiar();
+});

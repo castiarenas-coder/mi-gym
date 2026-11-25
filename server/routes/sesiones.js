@@ -221,6 +221,12 @@ export function sesionesRouter(db, { ahora = () => new Date() } = {}) {
         const duracion = Math.max(0, Math.round((fin.getTime() - new Date(s.fecha).getTime()) / 1000));
         db.prepare('DELETE FROM series_hechas WHERE sesion_id = ? AND hecha = 0').run(s.id);
         db.prepare('DELETE FROM sesion_ejercicios WHERE sesion_id = ? AND ejercicio_id NOT IN (SELECT ejercicio_id FROM series_hechas WHERE sesion_id = ?)').run(s.id, s.id);
+        // Las series que quedan se renumeran sin huecos (subir de a una es seguro: siempre se mueve hacia abajo).
+        const renumerar = db.prepare('UPDATE series_hechas SET n = ? WHERE sesion_id = ? AND ejercicio_id = ? AND n = ?');
+        for (const e of db.prepare('SELECT DISTINCT ejercicio_id FROM series_hechas WHERE sesion_id = ?').all(s.id)) {
+          const ns = db.prepare('SELECT n FROM series_hechas WHERE sesion_id = ? AND ejercicio_id = ? ORDER BY n').all(s.id, e.ejercicio_id).map(x => x.n);
+          ns.forEach((n, i) => { if (n !== i + 1) renumerar.run(i + 1, s.id, e.ejercicio_id, n); });
+        }
         db.prepare("UPDATE sesiones SET estado = 'finalizada', fin = ?, duracion = ? WHERE id = ?").run(fin.toISOString(), duracion, s.id);
       }
     });
