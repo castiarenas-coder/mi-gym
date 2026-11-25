@@ -1,0 +1,57 @@
+/* Rutinas: lista, tarjetas, edición por días. */
+
+.cabecera-pagina { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.cabecera-pagina h1 { margin: 0; }
+.formulario-linea { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.acciones--fin { justify-content: flex-end; }
+.modal--centro { align-items: center; }
+.modal--centro .modal__caja { border-radius: var(--radio-l); }
+.modal__caja--ancha { max-width: 640px; }
+.modal__titulo { margin: 0; font-size: 1.15rem; }
+
+.grilla-rutinas { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.tarjeta-rutina { display: grid; gap: 12px; padding: 18px; background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radio-l); transition: border-color 0.15s ease; }
+.tarjeta-rutina:hover { border-color: color-mix(in srgb, var(--acento) 55%, var(--borde)); }
+.tarjeta-rutina__enlace { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--texto); }
+.tarjeta-rutina__enlace svg { color: var(--acento); flex: none; }
+.tarjeta-rutina__nombre { margin: 0 0 4px; font-size: 1.05rem; overflow-wrap: anywhere; }
+.tarjeta-rutina__meta { margin: 0; color: var(--acento); font-weight: 800; font-size: 0.85rem; }
+.tarjeta-rutina__desc { margin: 6px 0 0; color: var(--texto-suave); font-size: 0.9rem; }
+.tarjeta-rutina__dias { list-style: none; margin: 0; padding: 0; }
+.tarjeta-rutina__acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+.tarjeta-rutina__acciones .boton { flex: 1; min-width: 120px; }
+
+/* ---- Edición ---- */
+.rutina-cabecera { display: grid; gap: 10px; }
+.titulo-editable { width: 100%; background: none; border: 0; border-bottom: 2px solid var(--borde); padding: 6px 0; color: var(--texto); font-family: var(--fuente-titulo); font-weight: 700; font-size: 1.5rem; }
+.titulo-editable:focus { outline: none; border-bottom-color: var(--acento); }
+.control--area { padding: 10px 14px; min-height: 64px; resize: vertical; line-height: 1.4; }
+
+.dia { display: grid; gap: 12px; padding: 16px; background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radio-l); }
+.dia__cabecera { display: flex; gap: 8px; align-items: center; }
+.dia__nombre { flex: 1; font-weight: 800; font-family: var(--fuente-titulo); font-size: 1rem; min-width: 0; }
+.lista-ej { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.fila-ej { display: grid; gap: 10px; padding: 12px; background: var(--superficie-2); border: 1px solid var(--borde); border-radius: var(--radio-m); }
+.fila-ej__cabecera { display: flex; align-items: center; gap: 12px; }
+.fila-ej__titulo { flex: 1; min-width: 0; display: grid; }
+.fila-ej__nombre { font-weight: 800; line-height: 1.25; overflow-wrap: anywhere; }
+.fila-ej__nombre:hover { color: var(--acento); }
+.fila-ej__meta { color: var(--texto-suave); font-size: 0.8rem; }
+.fila-ej__botones { display: flex; gap: 6px; flex: none; }
+.fila-ej__botones .icono-boton { width: 44px; height: 44px; background: var(--superficie); }
+.fila-ej__campos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.campo--nota { grid-column: 1 / -1; }
+@media (min-width: 700px) { .fila-ej__campos { grid-template-columns: 90px 110px 130px minmax(0, 1fr); } .campo--nota { grid-column: auto; } }
+.fila-ej .control { background: var(--superficie); text-align: center; padding: 0 8px; }
+.campo--nota .control { text-align: left; padding: 0 12px; }
+
+.miniatura { width: 72px; flex: none; border-radius: var(--radio-s); aspect-ratio: 1; }
+.miniatura .anim__vacio svg { width: 26px; height: 26px; }
+
+/* ---- Buscador de ejercicios ---- */
+.lista-busqueda { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.fila-busqueda { display: flex; align-items: center; gap: 12px; padding: 8px; background: var(--superficie-2); border: 1px solid var(--borde); border-radius: var(--radio-m); }
+.fila-busqueda__texto { flex: 1; min-width: 0; display: grid; }
+.fila-busqueda__texto strong { line-height: 1.25; overflow-wrap: anywhere; }
+.fila-busqueda__texto span { color: var(--texto-suave); font-size: 0.8rem; }
+.icono-boton--acento { background: var(--acento); color: var(--acento-texto); border-color: var(--acento); flex: none; }

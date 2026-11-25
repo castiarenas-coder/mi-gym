@@ -1,5 +1,6 @@
 @import './tokens.css';
 @import './ejercicios.css';
+@import './rutinas.css';
 
 *, *::before, *::after { box-sizing: border-box; }
 html, body, #root { height: 100%; }

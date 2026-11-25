@@ -5,8 +5,10 @@ import { Ejercicio } from './pages/Ejercicio'
 import { Ejercicios } from './pages/Ejercicios'
 import { Inicio } from './pages/Inicio'
 import { Proximamente } from './pages/Proximamente'
+import { Rutina } from './pages/Rutina'
+import { Rutinas } from './pages/Rutinas'
 
-const PROXIMAS = SECCIONES.filter(s => !['/', '/ejercicios'].includes(s.ruta))
+const PROXIMAS = SECCIONES.filter(s => !['/', '/ejercicios', '/rutinas'].includes(s.ruta))
 
 export function App() {
   return (
@@ -15,6 +17,8 @@ export function App() {
         <Route path="/" element={<Inicio />} />
         <Route path="/ejercicios" element={<Ejercicios />} />
         <Route path="/ejercicios/:id" element={<Ejercicio />} />
+        <Route path="/rutinas" element={<Rutinas />} />
+        <Route path="/rutinas/:id" element={<Rutina />} />
         {PROXIMAS.map(({ ruta, titulo, icono }) => (
           <Route key={ruta} path={ruta} element={<Proximamente titulo={titulo} icono={icono} />} />
         ))}

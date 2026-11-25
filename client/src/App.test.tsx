@@ -17,9 +17,9 @@ describe('App', () => {
   })
 
   it('marca la sección activa', () => {
-    ver('/rutinas')
+    ver('/entrenar')
     const nav = screen.getByRole('navigation', { name: 'Secciones' })
-    expect(within(nav).getByRole('link', { name: 'Rutinas' })).toHaveAttribute('aria-current', 'page')
+    expect(within(nav).getByRole('link', { name: 'Entrenar' })).toHaveAttribute('aria-current', 'page')
     expect(within(nav).getByRole('link', { name: 'Inicio' })).not.toHaveAttribute('aria-current')
   })
 
