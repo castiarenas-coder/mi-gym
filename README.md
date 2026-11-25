@@ -15,7 +15,7 @@ Tu gimnasio en tu PC: ejercicios, rutinas y progreso, todo en español, sin cuen
 - **Calculadora** de IMC y calorías.
 - **Todo local y sin cuentas**: los datos viven en una base SQLite en tu carpeta.
 - **Backups**: respaldo automático, exportar/importar a archivo y restaurar.
-- Funciona también desde el celular, con el wifi de tu casa.
+- Funciona también desde el celular: con el wifi de tu casa o, mejor, instalando la app de Android (sin PC ni internet).
 
 ## Descargar e instalar (Windows)
 
@@ -43,6 +43,29 @@ npm run instalador   # deja release/Mi-Gym-Setup-<versión>.exe
 ```
 
 Compila la interfaz, convierte el catálogo (fotos a WebP de hasta 480 px, unos 23 MB en total), baja Node 22 portátil verificando su SHA256 y compila el instalador. El Node portátil se guarda en `.cache/node/`.
+
+## Descargar e instalar (Android)
+
+Mi Gym corre **entero dentro del celular**: no necesita una PC, wifi ni internet. El catálogo de 876 ejercicios con sus fotos ya viene en la app.
+
+1. Desde el celular, entrá a [Releases](https://github.com/castiarenas-coder/mi-gym/releases/latest) y bajá el archivo **Mi-Gym-x.y.z-arm64.apk**. Es el que sirve para casi todos los celulares de los últimos años; si Android dice que no es compatible, bajá el **-arm32.apk**.
+2. Abrí el archivo bajado. Android te va a avisar que tu navegador no puede instalar apps: tocá **Configuración** y activá **Permitir de esta fuente** (o "Instalar apps desconocidas") para el navegador con el que lo bajaste. Volvé atrás.
+3. Tocá **Instalar** y después **Abrir**. Si Play Protect pregunta, elegí **Instalar de todas formas** (la app todavía no está en Google Play).
+
+- **Dónde quedan tus datos:** adentro del celular, en el almacenamiento privado de la app. Nada sale a internet.
+- **Cómo guardar un backup:** **Ajustes → Exportar mis datos**. El archivo `mi-gym-AAAA-MM-DD.json` queda en la carpeta **Descargas** (en Android 9 o menos se abre el menú de compartir para guardarlo donde quieras). Mandátelo por mail o subilo a la nube. Para recuperarlo: **Ajustes → Importar desde un archivo**.
+- **Si desinstalás la app, los datos se borran.** Solo se recuperan si tenés la copia automática de Google activada (Android la restaura al reinstalar o al estrenar celular con tu misma cuenta de Google) o un archivo exportado. Conviene exportar uno de vez en cuando.
+- **Cómo actualizar:** cuando haya una versión nueva, bajá el APK nuevo y abrilo: se instala **encima** de la vieja y mantiene tus datos (siempre es la misma firma, no hace falta desinstalar).
+
+### Armar el APK (para quien desarrolla)
+
+Requisitos fuera del repo: JDK 17, Android SDK (plataforma 36, build-tools 36, NDK 28.2.13676358 y CMake 3.31.6) y [nodejs-mobile](https://github.com/nodejs-mobile/nodejs-mobile) 24.x descomprimido (carpeta con `bin/<abi>/libnode.so` e `include/node`; se indica con `NODEJS_MOBILE_DIR` o `-PnodejsMobile=`). Además, `android/keystore.properties` con los datos de la clave de firma (no se sube al repo; ver `android/app/build.gradle.kts`) y haber corrido `npm run preparar-catalogo`.
+
+```bash
+npm run apk   # deja release/Mi-Gym-<versión>-arm64.apk y -arm32.apk
+```
+
+Compila la interfaz, arma `android/app/src/main/assets/nodejs-project/` (servidor, interfaz, dependencias de producción y catálogo), y firma los APK. El `versionCode` sale de `version` en `package.json` (0.1.0 → 100): para publicar una actualización, subí la versión.
 
 ## Instalación para desarrolladores
 
