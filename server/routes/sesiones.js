@@ -153,10 +153,16 @@ export function sesionesRouter(db, { ahora = () => new Date() } = {}) {
     return { ...b, grupo: cargarGrupo(grupo) };
   }
 
-  /** La sesión si es de la persona o de alguien con quien entrenó en grupo; si no, undefined (404). */
-  const acceso = (id, persona) => db.prepare(`
-    SELECT id, persona_id, fecha, estado, grupo FROM sesiones
-    WHERE id = ? AND (persona_id = ? OR (grupo IS NOT NULL AND grupo IN (SELECT grupo FROM sesiones WHERE persona_id = ? AND grupo IS NOT NULL)))`).get(id, persona, persona);
+  /**
+   * La sesión si es de la persona o de alguien con quien entrenó en grupo; si no, undefined (404).
+   * Para modificar (`escribir`), la de otro miembro solo vale mientras sigue en curso: al terminar, cada uno cuida la suya.
+   */
+  const acceso = (id, persona, escribir = false) => {
+    const s = db.prepare(`
+      SELECT id, persona_id, fecha, estado, grupo FROM sesiones
+      WHERE id = ? AND (persona_id = ? OR (grupo IS NOT NULL AND grupo IN (SELECT grupo FROM sesiones WHERE persona_id = ? AND grupo IS NOT NULL)))`).get(id, persona, persona);
+    return s && escribir && s.persona_id !== persona && s.estado !== 'en_curso' ? undefined : s;
+  };
 
   /** Un grupo de una sola persona deja de ser grupo. */
   function limpiarGrupo(grupo) {
@@ -284,7 +290,7 @@ export function sesionesRouter(db, { ahora = () => new Date() } = {}) {
   }
 
   router.patch('/:id', (req, res) => {
-    const s = acceso(req.params.id, req.persona);
+    const s = acceso(req.params.id, req.persona, true);
     if (!s) return falla(res, 404, 'Sesión no encontrada');
     const body = req.body ?? {};
     if (!('nota' in body) && body.finalizar !== true) return falla(res, 400, 'No hay nada para actualizar');
@@ -316,7 +322,7 @@ export function sesionesRouter(db, { ahora = () => new Date() } = {}) {
 
   // Saca a una persona del entrenamiento en grupo: se descarta lo suyo y el resto sigue.
   router.delete('/:id/acompanantes/:personaId', (req, res) => {
-    const s = acceso(req.params.id, req.persona);
+    const s = acceso(req.params.id, req.persona, true);
     if (!s) return falla(res, 404, 'Sesión no encontrada');
     const quitada = s.grupo && /^\d+$/.test(req.params.personaId)
       ? db.prepare("SELECT id FROM sesiones WHERE grupo = ? AND persona_id = ? AND estado = 'en_curso'").get(s.grupo, Number(req.params.personaId))
@@ -332,7 +338,7 @@ export function sesionesRouter(db, { ahora = () => new Date() } = {}) {
     db.prepare('SELECT n, peso_kg, reps, rpe, hecha FROM series_hechas WHERE sesion_id = ? AND ejercicio_id = ? AND n = ?').get(sesion, ejercicio, n);
 
   router.post('/:id/series', (req, res) => {
-    const s = acceso(req.params.id, req.persona);
+    const s = acceso(req.params.id, req.persona, true);
     if (!s) return falla(res, 404, 'Sesión no encontrada');
     const body = req.body ?? {};
     if (!existeEjercicio(body.ejercicio_id)) return falla(res, 404, 'Ejercicio no encontrado');
@@ -360,7 +366,7 @@ export function sesionesRouter(db, { ahora = () => new Date() } = {}) {
 
   router.patch('/:id/series/:ejercicioId/:n', (req, res) => {
     const n = Number(req.params.n);
-    const actual = acceso(req.params.id, req.persona) && entero(n) ? leerSerie(req.params.id, req.params.ejercicioId, n) : null;
+    const actual = acceso(req.params.id, req.persona, true) && entero(n) ? leerSerie(req.params.id, req.params.ejercicioId, n) : null;
     if (!actual) return falla(res, 404, 'Serie no encontrada');
     const { error, datos } = validarSerie(req.body ?? {});
     if (error) return falla(res, 400, error);
@@ -373,7 +379,7 @@ export function sesionesRouter(db, { ahora = () => new Date() } = {}) {
 
   router.delete('/:id/series/:ejercicioId/:n', (req, res) => {
     const n = Number(req.params.n);
-    if (!acceso(req.params.id, req.persona) || !entero(n) || !leerSerie(req.params.id, req.params.ejercicioId, n)) return falla(res, 404, 'Serie no encontrada');
+    if (!acceso(req.params.id, req.persona, true) || !entero(n) || !leerSerie(req.params.id, req.params.ejercicioId, n)) return falla(res, 404, 'Serie no encontrada');
     transaccion(() => {
       db.prepare('DELETE FROM series_hechas WHERE sesion_id = ? AND ejercicio_id = ? AND n = ?').run(req.params.id, req.params.ejercicioId, n);
       // Renumera para que no queden huecos (en orden ascendente no hay choques de clave).
@@ -383,7 +389,7 @@ export function sesionesRouter(db, { ahora = () => new Date() } = {}) {
   });
 
   router.delete('/:id/ejercicios/:ejercicioId', (req, res) => {
-    if (!acceso(req.params.id, req.persona)) return falla(res, 404, 'Sesión no encontrada');
+    if (!acceso(req.params.id, req.persona, true)) return falla(res, 404, 'Sesión no encontrada');
     const info = db.prepare('DELETE FROM sesion_ejercicios WHERE sesion_id = ? AND ejercicio_id = ?').run(req.params.id, req.params.ejercicioId);
     if (!info.changes) return falla(res, 404, 'Ese ejercicio no está en la sesión');
     db.prepare('DELETE FROM series_hechas WHERE sesion_id = ? AND ejercicio_id = ?').run(req.params.id, req.params.ejercicioId);

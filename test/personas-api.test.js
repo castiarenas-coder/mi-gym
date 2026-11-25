@@ -196,6 +196,29 @@ test('quitar a un acompañante a mitad de la sesión', async () => {
   await api(1, `/api/sesiones/${r.id}`, { method: 'DELETE' });
 });
 
+test('después de terminar un grupo, solo cada dueño modifica su sesión', async () => {
+  const ana = await anaId();
+  const diaId = await rutinaConDia(1);
+  const r = (await api(1, '/api/sesiones', { method: 'POST', body: { dia_id: diaId, acompanantes: [ana] } })).json;
+  const deAna = r.grupo.miembros.find(m => m.persona.id === ana).sesion_id;
+  // En curso: el líder carga series de Ana.
+  assert.equal((await api(1, `/api/sesiones/${deAna}/series/Barbell_Squat/1`, { method: 'PATCH', body: { peso_kg: 40, reps: 10, hecha: true } })).status, 200);
+  await api(1, `/api/sesiones/${r.id}`, { method: 'PATCH', body: { finalizar: true } });
+  // Terminado: puede mirar, pero no modificar lo de otro.
+  assert.equal((await api(1, `/api/sesiones/${deAna}`)).status, 200);
+  assert.equal((await api(1, `/api/sesiones/${deAna}/series/Barbell_Squat/1`, { method: 'PATCH', body: { peso_kg: 999 } })).status, 404);
+  assert.equal((await api(1, `/api/sesiones/${deAna}/series/Barbell_Squat/1`, { method: 'DELETE' })).status, 404);
+  assert.equal((await api(1, `/api/sesiones/${deAna}/series`, { method: 'POST', body: { ejercicio_id: 'Pushups' } })).status, 404);
+  assert.equal((await api(1, `/api/sesiones/${deAna}`, { method: 'PATCH', body: { nota: 'x' } })).status, 404);
+  assert.equal((await api(1, `/api/sesiones/${deAna}/ejercicios/Barbell_Squat`, { method: 'DELETE' })).status, 404);
+  assert.equal((await api(ana, '/api/ejercicios/Barbell_Squat/ultima')).json.series[0].peso_kg, 40);
+  // El dueño sí.
+  assert.equal((await api(ana, `/api/sesiones/${deAna}/series/Barbell_Squat/1`, { method: 'PATCH', body: { peso_kg: 45 } })).status, 200);
+  assert.equal((await api(ana, `/api/sesiones/${deAna}`, { method: 'PATCH', body: { nota: 'ok' } })).status, 200);
+  await api(1, `/api/sesiones/${r.id}`, { method: 'DELETE' });
+  await api(ana, `/api/sesiones/${deAna}`, { method: 'DELETE' });
+});
+
 test('borrar personas: no la última, y sus datos se van con ella', async () => {
   const ana = await anaId();
   assert.equal((await s.pedir(`/api/personas/${ana}`, { method: 'DELETE' })).status, 200);

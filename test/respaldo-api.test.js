@@ -122,6 +122,20 @@ test('importar rechaza archivos inválidos sin tocar nada', async () => {
   assert.deepEqual(foto(), antes);
 });
 
+test('importar rechaza filas con persona_id nulo o desconocido', async () => {
+  const antes = foto();
+  const bueno = (await pedir('/api/respaldo/exportar')).json;
+  for (const tabla of ['rutinas', 'sesiones', 'medidas', 'perfil', 'favoritos']) {
+    for (const valor of [null, 9999]) {
+      const filas = bueno[tabla].map((f, i) => (i === 0 ? { ...f, persona_id: valor } : f));
+      const r = await pedir('/api/respaldo/importar', { method: 'POST', body: { ...bueno, [tabla]: filas } });
+      assert.equal(r.status, 400, `${tabla} con persona_id ${valor}`);
+      assert.match(r.json.error, /persona/i);
+    }
+  }
+  assert.deepEqual(foto(), antes);
+});
+
 test('hacer un respaldo ahora lo agrega a la lista', async () => {
   const r = await pedir('/api/respaldo/ahora', { method: 'POST' });
   assert.equal(r.status, 201);

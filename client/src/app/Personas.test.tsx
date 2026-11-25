@@ -75,3 +75,27 @@ describe('Personas: quién entrena', () => {
     expect(localStorage.getItem('mi-gym.persona')).toBe('9')
   })
 })
+
+describe('Personas: datos reemplazados', () => {
+  it('si la persona activa ya no existe tras restaurar, no pide datos con ella', async () => {
+    localStorage.setItem('mi-gym.persona', '2')
+    let restaurado = false
+    const { llamadas } = instalarApi((metodo, url) => {
+      const p = url.pathname
+      if (p === '/api/personas' && metodo === 'GET') return restaurado ? [PERSONA_YO] : [PERSONA_YO, PERSONA_ANA]
+      if (p === '/api/respaldo/lista') return [{ archivo: 'mi_gym-20261125-1200.db', fecha: '2026-11-25T12:00:00.000Z', tamano: 2048 }]
+      if (p === '/api/respaldo/restaurar' && metodo === 'POST') { restaurado = true; return { ok: true } }
+      if (p === '/api/info') return { version: '0.1.0', schema_version: 5, db: null, respaldos_dir: null, ultimo_respaldo: null, lan: false, urls: [], qr: null }
+      if (p === '/api/progreso/resumen') return RESUMEN
+      if (p === '/api/ejercicios') return { total: 0, limit: 1, offset: 0, items: [] }
+      return undefined
+    })
+    verApp('/ajustes')
+    await userEvent.click(await screen.findByRole('button', { name: 'Restaurar mi_gym-20261125-1200.db' }))
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Restaurar' }))
+    expect(await screen.findByText('Respaldo restaurado.')).toBeInTheDocument()
+    await waitFor(() => expect(localStorage.getItem('mi-gym.persona')).toBe('1'))
+    const despues = llamadas.slice(llamadas.findIndex(l => l.ruta === '/api/respaldo/restaurar') + 1)
+    expect(despues.filter(l => l.ruta !== '/api/personas' && l.persona === '2')).toEqual([])
+  })
+})

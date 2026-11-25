@@ -38,6 +38,12 @@ function validar(datos, db) {
     if (datos[t].some(f => !f || typeof f !== 'object' || Array.isArray(f))) throw new ErrorRespaldo(`La sección "${t}" tiene filas inválidas.`);
   }
   if (!datos.personas.length) throw new ErrorRespaldo('El archivo no tiene ninguna persona.');
+  const personas = new Set(datos.personas.map(f => f.id));
+  for (const t of ['rutinas', 'sesiones', 'medidas', 'perfil', 'favoritos']) {
+    if (datos[t].some(f => f.persona_id === null || f.persona_id === undefined || !personas.has(f.persona_id))) {
+      throw new ErrorRespaldo(`El archivo tiene filas de "${t}" sin una persona válida.`);
+    }
+  }
 }
 
 // Reemplaza los datos del usuario por `datos`. Hace un respaldo de seguridad antes (si hay carpeta).

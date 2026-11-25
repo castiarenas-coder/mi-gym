@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, enviar } from './cliente'
+import { renovarTodo } from './personas'
 
 export interface Info {
   version: string
@@ -35,7 +36,7 @@ export function useRestaurar() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (archivo: string) => enviar<{ ok: true }>('POST', '/respaldo/restaurar', { archivo }),
-    onSuccess: () => qc.invalidateQueries(),
+    onSuccess: () => renovarTodo(qc),
   })
 }
 
@@ -43,6 +44,6 @@ export function useImportar() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (datos: unknown) => enviar<{ ok: true }>('POST', '/respaldo/importar', datos),
-    onSuccess: () => qc.invalidateQueries(),
+    onSuccess: () => renovarTodo(qc),
   })
 }
