@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { instalarApi, verApp } from './test/utils'
 
 function ver(ruta = '/') {
-  instalarApi(() => ({ total: 0, limit: 1, offset: 0, items: [] }))
+  instalarApi((_m, url) => (url.pathname === '/api/sesiones/activa' ? null : url.pathname === '/api/rutinas' ? [] : url.pathname === '/api/progreso/resumen' ? undefined : { total: 0, limit: 1, offset: 0, items: [] }))
   return verApp(ruta)
 }
 
@@ -23,16 +23,16 @@ describe('App', () => {
     expect(within(nav).getByRole('link', { name: 'Inicio' })).not.toHaveAttribute('aria-current')
   })
 
-  it('las rutas sin construir muestran "Próximamente"', () => {
+  it('las secciones nuevas ya no son "Próximamente"', async () => {
     ver('/progreso')
-    expect(screen.getByRole('heading', { name: 'Progreso' })).toBeInTheDocument()
-    expect(screen.getByText('Próximamente')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Progreso' })).toBeInTheDocument()
+    expect(screen.queryByText('Próximamente')).not.toBeInTheDocument()
   })
 
   it('navega al tocar una sección', async () => {
     ver()
     await userEvent.click(screen.getByRole('link', { name: 'Entrenar' }))
-    expect(screen.getByRole('heading', { name: 'Entrenar' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Entrenar' })).toBeInTheDocument()
   })
 
   it('una ruta desconocida avisa en español', () => {
