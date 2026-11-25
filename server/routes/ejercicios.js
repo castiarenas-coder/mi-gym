@@ -2,6 +2,7 @@ import { Router, raw } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { normalizar } from '../normalizar.js';
+import { POPULARES } from '../populares.js';
 
 const LIMITE_MAX = 200;
 const COLS_LISTA = 'id, nombre, nombre_en, musculo_principal, musculos_sec, equipo, categoria, nivel, img_ini, img_fin, media_propia, favorito, traducido';
@@ -19,7 +20,21 @@ function entero(valor, porDefecto, min, max) {
   return Math.min(max, Math.max(min, n));
 }
 
-const escaparLike = t => t.replace(/[\\%_]/g, c => `\\${c}`);
+// Clave de orden [nivel, largo]: menor = más relevante. El largo desempata para que
+// "Sentadilla con barra" salga antes que "Sentadilla búlgara con mancuernas".
+export function relevancia(fila, q) {
+  const n = normalizar(fila.nombre);
+  const e = normalizar(fila.nombre_en);
+  if (n === q) return [0, n.length];
+  if (e === q) return [1, e.length];
+  if (n.startsWith(q)) return [2, n.length];
+  if (e.startsWith(q)) return [3, e.length];
+  if (` ${n}`.includes(` ${q}`)) return [4, n.length];
+  if (` ${e}`.includes(` ${q}`)) return [5, e.length];
+  return [6, n.length];
+}
+
+const escaparLike =t => t.replace(/[\\%_]/g, c => `\\${c}`);
 
 const TIPOS_MEDIA = {
   'image/gif': 'gif', 'video/mp4': 'mp4', 'video/webm': 'webm', 'image/jpeg': 'jpg', 'image/png': 'png',
@@ -41,6 +56,17 @@ export function ejerciciosRouter(db, { mediaDir } = {}) {
     const cond = where.length ? `WHERE ${where.join(' AND ')}` : '';
     const limit = entero(req.query.limit, 50, 1, LIMITE_MAX);
     const offset = entero(req.query.offset, 0, 0, Number.MAX_SAFE_INTEGER);
+    if (terminos.length) {
+      // Con texto buscado, ordenamos por relevancia en JS (el catálogo entero son ~900 filas).
+      const todas = db.prepare(`SELECT ${COLS_LISTA} FROM ejercicios ${cond}`).all(...params);
+      const q = terminos.join(' ');
+      const conClave = todas.map(f => ({ f, clave: relevancia(f, q) }));
+      conClave.sort((a, b) => a.clave[0] - b.clave[0]
+        || (POPULARES.has(b.f.id) - POPULARES.has(a.f.id)) || a.clave[1] - b.clave[1]
+        || normalizar(a.f.nombre).localeCompare(normalizar(b.f.nombre), 'es') || a.f.id.localeCompare(b.f.id));
+      const items = conClave.slice(offset, offset + limit).map(x => formatear(x.f));
+      return res.json({ total: todas.length, limit, offset, items });
+    }
     const total = db.prepare(`SELECT COUNT(*) AS n FROM ejercicios ${cond}`).get(...params).n;
     const filas = db.prepare(`SELECT ${COLS_LISTA} FROM ejercicios ${cond} ORDER BY nombre COLLATE NOCASE, id LIMIT ? OFFSET ?`)
       .all(...params, limit, offset);
