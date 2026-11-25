@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+: lo mismo que backup_rules.xml, para la copia en la nube y para pasar de un celular a otro. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="file" path="datos/mi_gym.db" />
+        <include domain="file" path="datos/mi_gym.db-wal" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="file" path="datos/mi_gym.db" />
+        <include domain="file" path="datos/mi_gym.db-wal" />
+    </device-transfer>
+</data-extraction-rules>

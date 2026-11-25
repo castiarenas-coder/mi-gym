@@ -35,6 +35,9 @@ function respaldar() {
 }
 respaldar();
 setInterval(respaldar, 24 * 60 * 60 * 1000).unref();
+// En el celular la copia automática de Google lleva el archivo de la base: se vuelca el registro pendiente (WAL) seguido
+// para que esa copia no quede desactualizada.
+if (config.plataforma === 'android') setInterval(() => { try { db.exec('PRAGMA wal_checkpoint(PASSIVE)'); } catch { /* ocupada: la próxima */ } }, 2 * 60 * 1000).unref();
 
 let server; let port = config.port;
 if (config.instalado) {

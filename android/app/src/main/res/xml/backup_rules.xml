@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copia automática de Google (Android 6 a 11): solo la base de datos (y su registro pendiente, -wal).
+     Quedan afuera el catálogo, las fotos y Node (se vuelven a copiar del APK al abrir la app). -->
+<full-backup-content>
+    <include domain="file" path="datos/mi_gym.db" />
+    <include domain="file" path="datos/mi_gym.db-wal" />
+</full-backup-content>

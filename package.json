@@ -18,7 +18,8 @@
     "importar": "node scripts/importar-catalogo.js",
     "acceso-directo": "node scripts/crear-acceso-directo.js",
     "preparar-catalogo": "node scripts/preparar-catalogo.js",
-    "instalador": "node scripts/instalador.js"
+    "instalador": "node scripts/instalador.js",
+    "apk": "npm run build && node scripts/android-stage.js && node scripts/android-build.js"
   },
   "engines": {
     "node": ">=22.19.0"
