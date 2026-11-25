@@ -4,20 +4,29 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ejerciciosRouter } from './routes/ejercicios.js';
 import { rutinasRouter } from './routes/rutinas.js';
+import { sesionesRouter } from './routes/sesiones.js';
+import { progresoRouter } from './routes/progreso.js';
 
 export function leerVersion(raiz) {
   try { return JSON.parse(fs.readFileSync(path.join(raiz, 'package.json'), 'utf8')).version; } catch { return '0.0.0'; }
 }
 
-export function createApp({ db, imgDir, mediaDir, clientDir, version = '0.0.0' }) {
+export function createApp({ db, imgDir, mediaDir, clientDir, version = '0.0.0', ahora = () => new Date() }) {
   const app = express();
   app.disable('x-powered-by');
   app.use(compression());
   app.use(express.json({ limit: '1mb' }));
 
   app.get('/api/salud', (_req, res) => res.json({ ok: true, version }));
+  const sesiones = sesionesRouter(db, { ahora });
+  const progreso = progresoRouter(db, { ahora });
+  app.use('/api/ejercicios', sesiones.porEjercicio);
   app.use('/api/ejercicios', ejerciciosRouter(db, { mediaDir }));
   app.use('/api/rutinas', rutinasRouter(db));
+  app.use('/api/sesiones', sesiones.router);
+  app.use('/api/medidas', progreso.medidas);
+  app.use('/api/perfil', progreso.perfil);
+  app.use('/api/progreso', progreso.router);
   app.use('/api', (_req, res) => res.status(404).json({ error: 'No existe' }));
 
   if (mediaDir) app.use('/media', express.static(mediaDir, { fallthrough: false }));

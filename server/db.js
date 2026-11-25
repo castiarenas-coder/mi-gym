@@ -123,6 +123,41 @@ export const MIGRACIONES = [
       );
     `,
   },
+  {
+    // F4: sesiones en curso/finalizadas, con los ejercicios que se hicieron en cada una.
+    version: 3,
+    sql: `
+      ALTER TABLE sesiones ADD COLUMN dia_id INTEGER REFERENCES rutina_dias(id) ON DELETE SET NULL;
+      ALTER TABLE sesiones ADD COLUMN estado TEXT NOT NULL DEFAULT 'finalizada';
+      ALTER TABLE sesiones ADD COLUMN titulo TEXT;
+      ALTER TABLE sesiones ADD COLUMN fin TEXT;
+      ALTER TABLE series_hechas ADD COLUMN hecha INTEGER NOT NULL DEFAULT 1;
+
+      CREATE TABLE sesion_ejercicios (
+        sesion_id INTEGER NOT NULL REFERENCES sesiones(id) ON DELETE CASCADE,
+        ejercicio_id TEXT NOT NULL REFERENCES ejercicios(id),
+        orden INTEGER NOT NULL DEFAULT 0,
+        series_plan INTEGER NOT NULL DEFAULT 0,
+        reps_plan TEXT,
+        descanso_seg INTEGER NOT NULL DEFAULT 90,
+        PRIMARY KEY (sesion_id, ejercicio_id)
+      );
+      -- Lo que ya hubiera registrado pasa a la tabla nueva.
+      INSERT INTO sesion_ejercicios (sesion_id, ejercicio_id, orden, series_plan)
+        SELECT sesion_id, ejercicio_id, ROW_NUMBER() OVER (PARTITION BY sesion_id ORDER BY MIN(rowid)) - 1, COUNT(*)
+        FROM series_hechas GROUP BY sesion_id, ejercicio_id;
+
+      CREATE INDEX idx_sesiones_fecha ON sesiones(fecha);
+      CREATE INDEX idx_series_ejercicio ON series_hechas(ejercicio_id);
+      -- Solo una sesión en curso a la vez.
+      CREATE UNIQUE INDEX idx_sesion_en_curso ON sesiones(estado) WHERE estado = 'en_curso';
+    `,
+  },
+  {
+    // F5: el perfil admite fecha de nacimiento (la edad se calcula sola).
+    version: 4,
+    sql: `ALTER TABLE perfil ADD COLUMN fecha_nacimiento TEXT;`,
+  },
 ];
 
 export function versionActual(db) {
