@@ -10,6 +10,7 @@ import { sesionesRouter } from './routes/sesiones.js';
 import { progresoRouter } from './routes/progreso.js';
 import { respaldoRouter, listarArchivos } from './respaldo.js';
 import { versionActual } from './db.js';
+import { conPersona, personasRouter } from './personas.js';
 
 export function leerVersion(raiz) {
   try { return JSON.parse(fs.readFileSync(path.join(raiz, 'package.json'), 'utf8')).version; } catch { return '0.0.0'; }
@@ -42,6 +43,9 @@ export function createApp({ db, imgDir, mediaDir, clientDir, version = '0.0.0', 
   });
   const sesiones = sesionesRouter(db, { ahora });
   const progreso = progresoRouter(db, { ahora });
+  app.use('/api/personas', personasRouter(db));
+  // Todo lo demás es de la persona activa (encabezado X-Persona).
+  app.use(['/api/ejercicios', '/api/rutinas', '/api/sesiones', '/api/medidas', '/api/perfil', '/api/progreso'], conPersona(db));
   app.use('/api/ejercicios', sesiones.porEjercicio);
   app.use('/api/ejercicios', ejerciciosRouter(db, { mediaDir }));
   app.use('/api/rutinas', rutinasRouter(db));

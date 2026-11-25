@@ -37,7 +37,7 @@ test('no vuelve a sembrar, ni siquiera si se borraron todas las rutinas', () => 
 
 test('no siembra si ya hay rutinas del usuario', () => {
   const db = dbConCatalogo();
-  db.prepare("INSERT INTO rutinas (nombre) VALUES ('Mía')").run();
+  db.prepare("INSERT INTO rutinas (nombre, persona_id) VALUES ('Mía', 1)").run();
   assert.equal(sembrarPlantillas(db), 0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM rutinas').get().n, 1);
 });

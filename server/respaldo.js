@@ -9,7 +9,7 @@ import { backupDb } from './backup.js';
 import { openDb, versionActual } from './db.js';
 
 // Orden de inserción (padres antes que hijos). Para borrar se recorre al revés.
-export const TABLAS_USUARIO = ['rutinas', 'rutina_dias', 'rutina_ejercicios', 'sesiones', 'sesion_ejercicios', 'series_hechas', 'medidas', 'perfil', 'ajustes'];
+export const TABLAS_USUARIO = ['personas', 'rutinas', 'rutina_dias', 'rutina_ejercicios', 'sesiones', 'sesion_ejercicios', 'series_hechas', 'medidas', 'perfil', 'favoritos', 'ajustes'];
 
 export class ErrorRespaldo extends Error {
   constructor(mensaje, status = 400) { super(mensaje); this.status = status; }
@@ -22,7 +22,8 @@ export function exportarDatos(db, { ahora = new Date() } = {}) {
     fecha: ahora.toISOString(),
   };
   for (const t of TABLAS_USUARIO) datos[t] = db.prepare(`SELECT * FROM ${t}`).all().map(f => ({ ...f }));
-  datos.ejercicios = db.prepare('SELECT id, favorito, media_propia FROM ejercicios WHERE favorito != 0 OR media_propia IS NOT NULL ORDER BY id').all().map(f => ({ ...f }));
+  // Los favoritos van en su propia sección (son de cada persona); acá solo la media propia, que es de la casa.
+  datos.ejercicios = db.prepare('SELECT id, media_propia FROM ejercicios WHERE media_propia IS NOT NULL ORDER BY id').all().map(f => ({ ...f }));
   return datos;
 }
 
@@ -36,6 +37,7 @@ function validar(datos, db) {
     if (!Array.isArray(datos[t])) throw new ErrorRespaldo(`Al archivo le falta la sección "${t}".`);
     if (datos[t].some(f => !f || typeof f !== 'object' || Array.isArray(f))) throw new ErrorRespaldo(`La sección "${t}" tiene filas inválidas.`);
   }
+  if (!datos.personas.length) throw new ErrorRespaldo('El archivo no tiene ninguna persona.');
 }
 
 // Reemplaza los datos del usuario por `datos`. Hace un respaldo de seguridad antes (si hay carpeta).
@@ -56,9 +58,9 @@ export function importarDatos(db, datos, { backupsDir } = {}) {
           .run(...cols.map(c => (typeof fila[c] === 'boolean' ? Number(fila[c]) : fila[c] ?? null)));
       }
     }
-    const marcar = db.prepare('UPDATE ejercicios SET favorito = ?, media_propia = ? WHERE id = ?');
-    for (const e of datos.ejercicios) marcar.run(e.favorito ? 1 : 0, e.media_propia ?? null, String(e.id));
-    if (db.prepare('PRAGMA foreign_key_check').all().length) throw new ErrorRespaldo('El archivo tiene referencias a ejercicios o rutinas que no existen.');
+    const marcar = db.prepare('UPDATE ejercicios SET media_propia = ? WHERE id = ?');
+    for (const e of datos.ejercicios) marcar.run(e.media_propia ?? null, String(e.id));
+    if (db.prepare('PRAGMA foreign_key_check').all().length) throw new ErrorRespaldo('El archivo tiene referencias a personas, ejercicios o rutinas que no existen.');
     db.exec('COMMIT');
   } catch (err) {
     try { db.exec('ROLLBACK'); } catch { /* ya cerrada */ }

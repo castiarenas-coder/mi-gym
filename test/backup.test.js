@@ -11,7 +11,7 @@ function tmp() { return fs.mkdtempSync(path.join(os.tmpdir(), 'migym-')); }
 test('backupDb copia la base y rota dejando los últimos N', () => {
   const dir = tmp();
   const db = openDb(path.join(dir, 'a.db'));
-  db.prepare("INSERT INTO medidas (fecha, peso_kg) VALUES ('2026-01-01', 80)").run();
+  db.prepare("INSERT INTO medidas (persona_id, fecha, peso_kg) VALUES (1, '2026-01-01', 80)").run();
   for (let i = 1; i <= 4; i++) backupDb(db, path.join(dir, 'b'), { keep: 3, now: new Date(Date.UTC(2026, 0, i, 10, 0)) });
   const lista = listarBackups(path.join(dir, 'b'));
   assert.equal(lista.length, 3);
@@ -25,9 +25,9 @@ test('restoreDb vuelve a un respaldo y guarda la base previa', () => {
   const dir = tmp();
   const file = path.join(dir, 'a.db');
   let db = openDb(file);
-  db.prepare("INSERT INTO medidas (fecha, peso_kg) VALUES ('2026-01-01', 80)").run();
+  db.prepare("INSERT INTO medidas (persona_id, fecha, peso_kg) VALUES (1, '2026-01-01', 80)").run();
   const bk = backupDb(db, path.join(dir, 'b'));
-  db.prepare("INSERT INTO medidas (fecha, peso_kg) VALUES ('2026-01-02', 81)").run();
+  db.prepare("INSERT INTO medidas (persona_id, fecha, peso_kg) VALUES (1, '2026-01-02', 81)").run();
   db.close();
   restoreDb(bk, file, path.join(dir, 'b'));
   db = openDb(file);

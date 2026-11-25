@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { randomUUID } from 'node:crypto';
 import { e1rmEpley, fechaValida, sumarDias, volumenSerie } from '../calculos.js';
 
 const falla = (res, status, error) => res.status(status).json({ error });
@@ -36,12 +37,12 @@ function validarSerie(body) {
 const formatearSerie = f => ({ n: f.n, peso_kg: f.peso_kg, reps: f.reps, rpe: f.rpe, hecha: !!f.hecha });
 
 /** Series hechas de un ejercicio en sesiones finalizadas, de la más vieja a la más nueva. */
-export function seriesHechasDe(db, ejercicioId) {
+export function seriesHechasDe(db, ejercicioId, persona) {
   return db.prepare(`
     SELECT s.id AS sesion_id, s.fecha, h.n, h.peso_kg, h.reps, h.rpe
     FROM series_hechas h JOIN sesiones s ON s.id = h.sesion_id
-    WHERE h.ejercicio_id = ? AND h.hecha = 1 AND s.estado = 'finalizada'
-    ORDER BY s.fecha, s.id, h.n`).all(ejercicioId);
+    WHERE h.ejercicio_id = ? AND h.hecha = 1 AND s.estado = 'finalizada' AND s.persona_id = ?
+    ORDER BY s.fecha, s.id, h.n`).all(ejercicioId, persona);
 }
 
 /** Mejor peso y mejor 1RM estimado de una lista de series (gana el primero que lo logró). */
@@ -71,11 +72,11 @@ export function sesionesRouter(db, { ahora = () => new Date() } = {}) {
 
   const existeEjercicio = id => typeof id === 'string' && !!db.prepare('SELECT 1 FROM ejercicios WHERE id = ?').get(id);
 
-  function ultimasSeries(ejercicioId) {
+  function ultimasSeries(ejercicioId, persona) {
     const ultima = db.prepare(`
       SELECT s.id, s.fecha FROM series_hechas h JOIN sesiones s ON s.id = h.sesion_id
-      WHERE h.ejercicio_id = ? AND h.hecha = 1 AND s.estado = 'finalizada'
-      ORDER BY s.fecha DESC, s.id DESC LIMIT 1`).get(ejercicioId);
+      WHERE h.ejercicio_id = ? AND h.hecha = 1 AND s.estado = 'finalizada' AND s.persona_id = ?
+      ORDER BY s.fecha DESC, s.id DESC LIMIT 1`).get(ejercicioId, persona);
     if (!ultima) return { sesion_id: null, fecha: null, series: [] };
     const series = db.prepare('SELECT n, peso_kg, reps, rpe FROM series_hechas WHERE sesion_id = ? AND ejercicio_id = ? AND hecha = 1 ORDER BY n')
       .all(ultima.id, ejercicioId);
@@ -88,7 +89,7 @@ export function sesionesRouter(db, { ahora = () => new Date() } = {}) {
     for (const e of ejercicios) {
       const hechas = e.series.filter(x => x.hecha).map(x => ({ ...x, fecha: sesion.fecha, sesion_id: sesion.id }));
       if (!hechas.length) continue;
-      const previas = seriesHechasDe(db, e.ejercicio_id).filter(f => f.fecha < sesion.fecha || (f.fecha === sesion.fecha && f.sesion_id < sesion.id));
+      const previas = seriesHechasDe(db, e.ejercicio_id, sesion.persona_id).filter(f => f.fecha < sesion.fecha || (f.fecha === sesion.fecha && f.sesion_id < sesion.id));
       if (!previas.length) continue;
       const ahoraMejor = mejoresDe(hechas);
       const antes = mejoresDe(previas);
@@ -102,9 +103,10 @@ export function sesionesRouter(db, { ahora = () => new Date() } = {}) {
     return records;
   }
 
-  function cargarSesion(id) {
-    const s = db.prepare('SELECT id, rutina_id, dia_id, titulo, fecha, fin, duracion, nota, estado FROM sesiones WHERE id = ?').get(id);
-    if (!s) return null;
+  /** Una sesión suelta, sin los datos del grupo. */
+  function cargarBase(id) {
+    const { grupo: _g, ...s } = db.prepare('SELECT id, persona_id, rutina_id, dia_id, titulo, fecha, fin, duracion, nota, estado, grupo FROM sesiones WHERE id = ?').get(id) ?? {};
+    if (s.id === undefined) return null;
     const ejs = db.prepare(`
       SELECT se.ejercicio_id, se.orden, se.series_plan, se.reps_plan, se.descanso_seg,
              e.nombre, e.musculo_principal, e.equipo, e.img_ini, e.img_fin, e.media_propia
@@ -122,15 +124,55 @@ export function sesionesRouter(db, { ahora = () => new Date() } = {}) {
     return { ...s, ejercicios, resumen };
   }
 
+  /** Quiénes entrenaron juntos: una fila por persona con lo que lleva hecho (o lo que hizo, si ya terminó). */
+  function cargarGrupo(grupo) {
+    if (!grupo) return null;
+    const ids = db.prepare('SELECT s.id, p.id AS pid, p.nombre, p.color, p.avatar FROM sesiones s JOIN personas p ON p.id = s.persona_id WHERE s.grupo = ? ORDER BY s.id').all(grupo);
+    if (ids.length < 2) return null;
+    const miembros = ids.map(m => {
+      const b = cargarBase(m.id);
+      return {
+        sesion_id: m.id,
+        persona: { id: m.pid, nombre: m.nombre, color: m.color, avatar: m.avatar },
+        estado: b.estado,
+        duracion: b.duracion,
+        series_hechas: b.resumen.series_hechas,
+        series_total: b.ejercicios.reduce((t, e) => t + e.series.length, 0),
+        ejercicios: b.resumen.ejercicios,
+        volumen_kg: b.resumen.volumen_kg,
+        records: b.resumen.records,
+      };
+    });
+    return { id: grupo, miembros };
+  }
+
+  function cargarSesion(id) {
+    const b = cargarBase(id);
+    if (!b) return null;
+    const { grupo } = db.prepare('SELECT grupo FROM sesiones WHERE id = ?').get(id);
+    return { ...b, grupo: cargarGrupo(grupo) };
+  }
+
+  /** La sesión si es de la persona o de alguien con quien entrenó en grupo; si no, undefined (404). */
+  const acceso = (id, persona) => db.prepare(`
+    SELECT id, persona_id, fecha, estado, grupo FROM sesiones
+    WHERE id = ? AND (persona_id = ? OR (grupo IS NOT NULL AND grupo IN (SELECT grupo FROM sesiones WHERE persona_id = ? AND grupo IS NOT NULL)))`).get(id, persona, persona);
+
+  /** Un grupo de una sola persona deja de ser grupo. */
+  function limpiarGrupo(grupo) {
+    if (!grupo) return;
+    if (db.prepare('SELECT COUNT(*) AS n FROM sesiones WHERE grupo = ?').get(grupo).n < 2) db.prepare('UPDATE sesiones SET grupo = NULL WHERE grupo = ?').run(grupo);
+  }
+
   // ---- Sesiones ----
-  router.get('/activa', (_req, res) => {
-    const a = db.prepare("SELECT id FROM sesiones WHERE estado = 'en_curso'").get();
+  router.get('/activa', (req, res) => {
+    const a = db.prepare("SELECT id FROM sesiones WHERE estado = 'en_curso' AND persona_id = ?").get(req.persona);
     res.json(a ? cargarSesion(a.id) : null);
   });
 
   router.get('/', (req, res) => {
-    const where = [];
-    const params = [];
+    const where = ['s.persona_id = ?'];
+    const params = [req.persona];
     if (req.query.desde !== undefined) {
       if (!fechaValida(req.query.desde)) return falla(res, 400, 'La fecha "desde" no es válida (AAAA-MM-DD)');
       const [y, m, d] = req.query.desde.split('-').map(Number);
@@ -147,7 +189,7 @@ export function sesionesRouter(db, { ahora = () => new Date() } = {}) {
     const offset = Math.max(0, Number.parseInt(req.query.offset, 10) || 0);
     const total = db.prepare(`SELECT COUNT(*) AS n FROM sesiones s ${cond}`).get(...params).n;
     const filas = db.prepare(`
-      SELECT s.id, s.fecha, s.titulo, s.estado, s.duracion, s.nota,
+      SELECT s.id, s.fecha, s.titulo, s.estado, s.duracion, s.nota, s.grupo,
         (SELECT COUNT(*) FROM series_hechas h WHERE h.sesion_id = s.id AND h.hecha = 1) AS series_hechas,
         (SELECT COALESCE(SUM(h.peso_kg * h.reps), 0) FROM series_hechas h WHERE h.sesion_id = s.id AND h.hecha = 1) AS volumen_kg,
         (SELECT COUNT(*) FROM sesion_ejercicios se WHERE se.sesion_id = s.id) AS ejercicios
@@ -155,59 +197,94 @@ export function sesionesRouter(db, { ahora = () => new Date() } = {}) {
     const nombres = db.prepare(`
       SELECT e.nombre FROM sesion_ejercicios se JOIN ejercicios e ON e.id = se.ejercicio_id
       WHERE se.sesion_id = ? ORDER BY se.orden LIMIT 4`);
-    res.json({ total, limit, offset, items: filas.map(f => ({ ...f, nombres: nombres.all(f.id).map(n => n.nombre) })) });
+    const con = db.prepare('SELECT p.nombre FROM sesiones o JOIN personas p ON p.id = o.persona_id WHERE o.grupo = ? AND o.id != ? ORDER BY o.id');
+    res.json({
+      total, limit, offset,
+      items: filas.map(({ grupo, ...f }) => ({ ...f, nombres: nombres.all(f.id).map(n => n.nombre), con: grupo ? con.all(grupo, f.id).map(p => p.nombre) : [] })),
+    });
   });
 
   router.post('/', (req, res) => {
     const body = req.body ?? {};
-    const activa = db.prepare("SELECT id FROM sesiones WHERE estado = 'en_curso'").get();
+    const yo = req.persona;
+    const activa = db.prepare("SELECT id FROM sesiones WHERE estado = 'en_curso' AND persona_id = ?").get(yo);
     if (activa) return res.status(409).json({ error: 'Ya hay un entrenamiento en curso', activa_id: activa.id });
+
+    // Con quién entrena (opcional): cada persona recibe su propia sesión, ligadas por un mismo grupo.
+    let acompanantes = [];
+    if (body.acompanantes !== undefined && body.acompanantes !== null) {
+      if (!Array.isArray(body.acompanantes) || !body.acompanantes.every(entero)) return falla(res, 400, 'La lista de acompañantes no es válida');
+      acompanantes = [...new Set(body.acompanantes)];
+      if (acompanantes.includes(yo)) return falla(res, 400, 'No podés acompañarte a vos mismo');
+      for (const id of acompanantes) {
+        const p = db.prepare('SELECT id, nombre FROM personas WHERE id = ?').get(id);
+        if (!p) return falla(res, 404, 'Persona no encontrada');
+        const ocupada = db.prepare("SELECT id FROM sesiones WHERE estado = 'en_curso' AND persona_id = ?").get(id);
+        if (ocupada) return falla(res, 409, `${p.nombre} ya tiene un entrenamiento en curso`);
+      }
+    }
 
     let rutina = null;
     let dia = null;
     if (body.dia_id !== undefined && body.dia_id !== null) {
-      dia = db.prepare('SELECT id, nombre, rutina_id FROM rutina_dias WHERE id = ?').get(body.dia_id);
+      dia = db.prepare('SELECT d.id, d.nombre, d.rutina_id FROM rutina_dias d JOIN rutinas r ON r.id = d.rutina_id WHERE d.id = ? AND r.persona_id = ?').get(body.dia_id, yo);
       if (!dia) return falla(res, 404, 'Día no encontrado');
       rutina = db.prepare('SELECT id, nombre FROM rutinas WHERE id = ?').get(dia.rutina_id);
       if (body.rutina_id != null && body.rutina_id !== dia.rutina_id) return falla(res, 400, 'El día no pertenece a esa rutina');
     } else if (body.rutina_id !== undefined && body.rutina_id !== null) {
-      rutina = db.prepare('SELECT id, nombre FROM rutinas WHERE id = ?').get(body.rutina_id);
+      rutina = db.prepare('SELECT id, nombre FROM rutinas WHERE id = ? AND persona_id = ?').get(body.rutina_id, yo);
       if (!rutina) return falla(res, 404, 'Rutina no encontrada');
     }
     const titulo = dia ? `${rutina.nombre} – ${dia.nombre}` : rutina ? rutina.nombre : (texto(body.titulo, 80) ?? 'Sesión libre');
+    const grupo = acompanantes.length ? randomUUID() : null;
 
     const id = transaccion(() => {
-      const nuevo = Number(db.prepare("INSERT INTO sesiones (rutina_id, dia_id, titulo, fecha, estado) VALUES (?, ?, ?, ?, 'en_curso')")
-        .run(rutina?.id ?? null, dia?.id ?? null, titulo, ahora().toISOString()).lastInsertRowid);
-      if (dia) {
-        const plan = db.prepare('SELECT ejercicio_id, series, reps, descanso_seg FROM rutina_ejercicios WHERE dia_id = ? ORDER BY orden, id').all(dia.id);
-        const insEj = db.prepare('INSERT OR IGNORE INTO sesion_ejercicios (sesion_id, ejercicio_id, orden, series_plan, reps_plan, descanso_seg) VALUES (?, ?, ?, ?, ?, ?)');
-        const insSerie = db.prepare('INSERT INTO series_hechas (sesion_id, ejercicio_id, n, peso_kg, reps, hecha) VALUES (?, ?, ?, ?, ?, 0)');
+      const plan = dia ? db.prepare('SELECT ejercicio_id, series, reps, descanso_seg FROM rutina_ejercicios WHERE dia_id = ? ORDER BY orden, id').all(dia.id) : [];
+      const insSesion = db.prepare("INSERT INTO sesiones (persona_id, rutina_id, dia_id, titulo, fecha, estado, grupo) VALUES (?, ?, ?, ?, ?, 'en_curso', ?)");
+      const insEj = db.prepare('INSERT OR IGNORE INTO sesion_ejercicios (sesion_id, ejercicio_id, orden, series_plan, reps_plan, descanso_seg) VALUES (?, ?, ?, ?, ?, ?)');
+      const insSerie = db.prepare('INSERT INTO series_hechas (sesion_id, ejercicio_id, n, peso_kg, reps, hecha) VALUES (?, ?, ?, ?, ?, 0)');
+      const crear = (persona, propia) => {
+        const nuevo = Number(insSesion.run(persona, propia ? rutina?.id ?? null : null, propia ? dia?.id ?? null : null, titulo, ahora().toISOString(), grupo).lastInsertRowid);
         let orden = 0;
         for (const p of plan) {
           if (insEj.run(nuevo, p.ejercicio_id, orden, p.series, p.reps, p.descanso_seg).changes === 0) continue;
           orden += 1;
-          const ultimas = ultimasSeries(p.ejercicio_id).series;
+          const ultimas = ultimasSeries(p.ejercicio_id, persona).series; // lo de la última vez de cada uno
           const repsPlan = Number.parseInt(p.reps, 10);
           for (let i = 0; i < p.series; i++) {
             const previa = ultimas[i] ?? ultimas.at(-1);
             insSerie.run(nuevo, p.ejercicio_id, i + 1, previa?.peso_kg ?? null, previa?.reps ?? (Number.isFinite(repsPlan) ? repsPlan : null));
           }
         }
-      }
-      return nuevo;
+        return nuevo;
+      };
+      const mia = crear(yo, true);
+      for (const otra of acompanantes) crear(otra, false);
+      return mia;
     });
     res.status(201).json(cargarSesion(id));
   });
 
   router.get('/:id', (req, res) => {
-    const s = cargarSesion(req.params.id);
-    if (!s) return falla(res, 404, 'Sesión no encontrada');
-    res.json(s);
+    if (!acceso(req.params.id, req.persona)) return falla(res, 404, 'Sesión no encontrada');
+    res.json(cargarSesion(req.params.id));
   });
 
+  function finalizarUna(s, fin) {
+    const duracion = Math.max(0, Math.round((fin.getTime() - new Date(s.fecha).getTime()) / 1000));
+    db.prepare('DELETE FROM series_hechas WHERE sesion_id = ? AND hecha = 0').run(s.id);
+    db.prepare('DELETE FROM sesion_ejercicios WHERE sesion_id = ? AND ejercicio_id NOT IN (SELECT ejercicio_id FROM series_hechas WHERE sesion_id = ?)').run(s.id, s.id);
+    // Las series que quedan se renumeran sin huecos (subir de a una es seguro: siempre se mueve hacia abajo).
+    const renumerar = db.prepare('UPDATE series_hechas SET n = ? WHERE sesion_id = ? AND ejercicio_id = ? AND n = ?');
+    for (const e of db.prepare('SELECT DISTINCT ejercicio_id FROM series_hechas WHERE sesion_id = ?').all(s.id)) {
+      const ns = db.prepare('SELECT n FROM series_hechas WHERE sesion_id = ? AND ejercicio_id = ? ORDER BY n').all(s.id, e.ejercicio_id).map(x => x.n);
+      ns.forEach((n, i) => { if (n !== i + 1) renumerar.run(i + 1, s.id, e.ejercicio_id, n); });
+    }
+    db.prepare("UPDATE sesiones SET estado = 'finalizada', fin = ?, duracion = ? WHERE id = ?").run(fin.toISOString(), duracion, s.id);
+  }
+
   router.patch('/:id', (req, res) => {
-    const s = db.prepare('SELECT id, fecha, estado FROM sesiones WHERE id = ?').get(req.params.id);
+    const s = acceso(req.params.id, req.persona);
     if (!s) return falla(res, 404, 'Sesión no encontrada');
     const body = req.body ?? {};
     if (!('nota' in body) && body.finalizar !== true) return falla(res, 400, 'No hay nada para actualizar');
@@ -218,34 +295,44 @@ export function sesionesRouter(db, { ahora = () => new Date() } = {}) {
       if ('nota' in body) db.prepare('UPDATE sesiones SET nota = ? WHERE id = ?').run(body.nota?.trim() || null, s.id);
       if (body.finalizar === true && s.estado === 'en_curso') {
         const fin = ahora();
-        const duracion = Math.max(0, Math.round((fin.getTime() - new Date(s.fecha).getTime()) / 1000));
-        db.prepare('DELETE FROM series_hechas WHERE sesion_id = ? AND hecha = 0').run(s.id);
-        db.prepare('DELETE FROM sesion_ejercicios WHERE sesion_id = ? AND ejercicio_id NOT IN (SELECT ejercicio_id FROM series_hechas WHERE sesion_id = ?)').run(s.id, s.id);
-        // Las series que quedan se renumeran sin huecos (subir de a una es seguro: siempre se mueve hacia abajo).
-        const renumerar = db.prepare('UPDATE series_hechas SET n = ? WHERE sesion_id = ? AND ejercicio_id = ? AND n = ?');
-        for (const e of db.prepare('SELECT DISTINCT ejercicio_id FROM series_hechas WHERE sesion_id = ?').all(s.id)) {
-          const ns = db.prepare('SELECT n FROM series_hechas WHERE sesion_id = ? AND ejercicio_id = ? ORDER BY n').all(s.id, e.ejercicio_id).map(x => x.n);
-          ns.forEach((n, i) => { if (n !== i + 1) renumerar.run(i + 1, s.id, e.ejercicio_id, n); });
-        }
-        db.prepare("UPDATE sesiones SET estado = 'finalizada', fin = ?, duracion = ? WHERE id = ?").run(fin.toISOString(), duracion, s.id);
+        // Terminar un entrenamiento en grupo termina el de todos; cada uno con su duración, volumen y récords.
+        const tanda = s.grupo
+          ? db.prepare("SELECT id, fecha FROM sesiones WHERE grupo = ? AND estado = 'en_curso' ORDER BY id").all(s.grupo)
+          : [s];
+        for (const x of tanda) finalizarUna(x, fin);
       }
     });
     res.json(cargarSesion(s.id));
   });
 
+  // Descarta la sesión propia (en curso o del historial).
   router.delete('/:id', (req, res) => {
-    const info = db.prepare('DELETE FROM sesiones WHERE id = ?').run(req.params.id);
-    if (!info.changes) return falla(res, 404, 'Sesión no encontrada');
+    const s = db.prepare('SELECT id, grupo FROM sesiones WHERE id = ? AND persona_id = ?').get(req.params.id, req.persona);
+    if (!s) return falla(res, 404, 'Sesión no encontrada');
+    db.prepare('DELETE FROM sesiones WHERE id = ?').run(s.id);
+    limpiarGrupo(s.grupo);
     res.json({ ok: true });
   });
 
+  // Saca a una persona del entrenamiento en grupo: se descarta lo suyo y el resto sigue.
+  router.delete('/:id/acompanantes/:personaId', (req, res) => {
+    const s = acceso(req.params.id, req.persona);
+    if (!s) return falla(res, 404, 'Sesión no encontrada');
+    const quitada = s.grupo && /^\d+$/.test(req.params.personaId)
+      ? db.prepare("SELECT id FROM sesiones WHERE grupo = ? AND persona_id = ? AND estado = 'en_curso'").get(s.grupo, Number(req.params.personaId))
+      : null;
+    if (!quitada) return falla(res, 404, 'Esa persona no está en el entrenamiento');
+    db.prepare('DELETE FROM sesiones WHERE id = ?').run(quitada.id);
+    limpiarGrupo(s.grupo);
+    res.json(quitada.id === s.id ? { ok: true, quitada: true } : cargarSesion(s.id));
+  });
+
   // ---- Series ----
-  const sesionExiste = id => db.prepare('SELECT id FROM sesiones WHERE id = ?').get(id);
   const leerSerie = (sesion, ejercicio, n) =>
     db.prepare('SELECT n, peso_kg, reps, rpe, hecha FROM series_hechas WHERE sesion_id = ? AND ejercicio_id = ? AND n = ?').get(sesion, ejercicio, n);
 
   router.post('/:id/series', (req, res) => {
-    const s = sesionExiste(req.params.id);
+    const s = acceso(req.params.id, req.persona);
     if (!s) return falla(res, 404, 'Sesión no encontrada');
     const body = req.body ?? {};
     if (!existeEjercicio(body.ejercicio_id)) return falla(res, 404, 'Ejercicio no encontrado');
@@ -273,7 +360,7 @@ export function sesionesRouter(db, { ahora = () => new Date() } = {}) {
 
   router.patch('/:id/series/:ejercicioId/:n', (req, res) => {
     const n = Number(req.params.n);
-    const actual = entero(n) ? leerSerie(req.params.id, req.params.ejercicioId, n) : null;
+    const actual = acceso(req.params.id, req.persona) && entero(n) ? leerSerie(req.params.id, req.params.ejercicioId, n) : null;
     if (!actual) return falla(res, 404, 'Serie no encontrada');
     const { error, datos } = validarSerie(req.body ?? {});
     if (error) return falla(res, 400, error);
@@ -286,7 +373,7 @@ export function sesionesRouter(db, { ahora = () => new Date() } = {}) {
 
   router.delete('/:id/series/:ejercicioId/:n', (req, res) => {
     const n = Number(req.params.n);
-    if (!entero(n) || !leerSerie(req.params.id, req.params.ejercicioId, n)) return falla(res, 404, 'Serie no encontrada');
+    if (!acceso(req.params.id, req.persona) || !entero(n) || !leerSerie(req.params.id, req.params.ejercicioId, n)) return falla(res, 404, 'Serie no encontrada');
     transaccion(() => {
       db.prepare('DELETE FROM series_hechas WHERE sesion_id = ? AND ejercicio_id = ? AND n = ?').run(req.params.id, req.params.ejercicioId, n);
       // Renumera para que no queden huecos (en orden ascendente no hay choques de clave).
@@ -296,6 +383,7 @@ export function sesionesRouter(db, { ahora = () => new Date() } = {}) {
   });
 
   router.delete('/:id/ejercicios/:ejercicioId', (req, res) => {
+    if (!acceso(req.params.id, req.persona)) return falla(res, 404, 'Sesión no encontrada');
     const info = db.prepare('DELETE FROM sesion_ejercicios WHERE sesion_id = ? AND ejercicio_id = ?').run(req.params.id, req.params.ejercicioId);
     if (!info.changes) return falla(res, 404, 'Ese ejercicio no está en la sesión');
     db.prepare('DELETE FROM series_hechas WHERE sesion_id = ? AND ejercicio_id = ?').run(req.params.id, req.params.ejercicioId);
@@ -307,12 +395,12 @@ export function sesionesRouter(db, { ahora = () => new Date() } = {}) {
 
   porEjercicio.get('/:id/ultima', (req, res) => {
     if (!existeEjercicio(req.params.id)) return falla(res, 404, 'Ejercicio no encontrado');
-    res.json(ultimasSeries(req.params.id));
+    res.json(ultimasSeries(req.params.id, req.persona));
   });
 
   porEjercicio.get('/:id/historial', (req, res) => {
     if (!existeEjercicio(req.params.id)) return falla(res, 404, 'Ejercicio no encontrado');
-    const filas = seriesHechasDe(db, req.params.id);
+    const filas = seriesHechasDe(db, req.params.id, req.persona);
     const porSesion = new Map();
     for (const f of filas) {
       if (!porSesion.has(f.sesion_id)) porSesion.set(f.sesion_id, { sesion_id: f.sesion_id, fecha: f.fecha, series: [] });

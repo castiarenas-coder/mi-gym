@@ -24,9 +24,9 @@ export function progresoRouter(db, { ahora = () => new Date() } = {}) {
 
   // ---- Medidas ----
   const medidas = Router();
-  const leerMedida = fecha => db.prepare('SELECT fecha, peso_kg, cintura, pecho, brazo, pierna, grasa_pct FROM medidas WHERE fecha = ?').get(fecha);
+  const leerMedida = (persona, fecha) => db.prepare('SELECT fecha, peso_kg, cintura, pecho, brazo, pierna, grasa_pct FROM medidas WHERE persona_id = ? AND fecha = ?').get(persona, fecha);
 
-  function guardarMedida(res, fecha, body) {
+  function guardarMedida(res, persona, fecha, body) {
     if (!fechaValida(fecha)) return falla(res, 400, 'La fecha no es válida (AAAA-MM-DD)');
     const datos = {};
     for (const c of COLUMNAS_MEDIDA) {
@@ -37,19 +37,19 @@ export function progresoRouter(db, { ahora = () => new Date() } = {}) {
       datos[c] = v;
     }
     if (!Object.keys(datos).length) return falla(res, 400, 'Cargá al menos una medida');
-    const existe = !!leerMedida(fecha);
+    const existe = !!leerMedida(persona, fecha);
     if (!existe) {
       if (Object.values(datos).every(v => v === null)) return falla(res, 400, 'Cargá al menos una medida');
-      db.prepare('INSERT INTO medidas (fecha) VALUES (?)').run(fecha);
+      db.prepare('INSERT INTO medidas (persona_id, fecha) VALUES (?, ?)').run(persona, fecha);
     }
     const campos = Object.keys(datos);
-    db.prepare(`UPDATE medidas SET ${campos.map(c => `${c} = ?`).join(', ')} WHERE fecha = ?`).run(...campos.map(c => datos[c]), fecha);
-    return res.status(existe ? 200 : 201).json(leerMedida(fecha));
+    db.prepare(`UPDATE medidas SET ${campos.map(c => `${c} = ?`).join(', ')} WHERE persona_id = ? AND fecha = ?`).run(...campos.map(c => datos[c]), persona, fecha);
+    return res.status(existe ? 200 : 201).json(leerMedida(persona, fecha));
   }
 
   medidas.get('/', (req, res) => {
-    const where = [];
-    const params = [];
+    const where = ['persona_id = ?'];
+    const params = [req.persona];
     if (req.query.desde !== undefined) {
       if (!fechaValida(req.query.desde)) return falla(res, 400, 'La fecha "desde" no es válida');
       where.push('fecha >= ?'); params.push(req.query.desde);
@@ -63,11 +63,11 @@ export function progresoRouter(db, { ahora = () => new Date() } = {}) {
   });
   medidas.post('/', (req, res) => {
     const body = req.body ?? {};
-    guardarMedida(res, body.fecha === undefined ? hoy() : body.fecha, body);
+    guardarMedida(res, req.persona, body.fecha === undefined ? hoy() : body.fecha, body);
   });
-  medidas.put('/:fecha', (req, res) => guardarMedida(res, req.params.fecha, req.body ?? {}));
+  medidas.put('/:fecha', (req, res) => guardarMedida(res, req.persona, req.params.fecha, req.body ?? {}));
   medidas.delete('/:fecha', (req, res) => {
-    const info = db.prepare('DELETE FROM medidas WHERE fecha = ?').run(req.params.fecha);
+    const info = db.prepare('DELETE FROM medidas WHERE persona_id = ? AND fecha = ?').run(req.persona, req.params.fecha);
     if (!info.changes) return falla(res, 404, 'No hay una medida en esa fecha');
     res.json({ ok: true });
   });
@@ -76,16 +76,16 @@ export function progresoRouter(db, { ahora = () => new Date() } = {}) {
   const perfil = Router();
   const COLS_PERFIL = 'altura AS altura_cm, edad, fecha_nacimiento, sexo, actividad, objetivo';
 
-  function respuestaPerfil() {
-    const p = db.prepare(`SELECT ${COLS_PERFIL} FROM perfil WHERE id = 1`).get()
+  function respuestaPerfil(persona) {
+    const p = db.prepare(`SELECT ${COLS_PERFIL} FROM perfil WHERE persona_id = ?`).get(persona)
       ?? { altura_cm: null, edad: null, fecha_nacimiento: null, sexo: null, actividad: null, objetivo: null };
     if (p.fecha_nacimiento) p.edad = edadDesde(p.fecha_nacimiento, ahora());
-    const ultimo = db.prepare('SELECT peso_kg, fecha FROM medidas WHERE peso_kg IS NOT NULL ORDER BY fecha DESC LIMIT 1').get();
+    const ultimo = db.prepare('SELECT peso_kg, fecha FROM medidas WHERE persona_id = ? AND peso_kg IS NOT NULL ORDER BY fecha DESC LIMIT 1').get(persona);
     const calculos = calcularPerfil({ ...p, peso_kg: ultimo?.peso_kg });
     return { perfil: p, peso_kg: ultimo?.peso_kg ?? null, fecha_peso: ultimo?.fecha ?? null, calculos };
   }
 
-  perfil.get('/', (_req, res) => res.json(respuestaPerfil()));
+  perfil.get('/', (req, res) => res.json(respuestaPerfil(req.persona)));
   perfil.put('/', (req, res) => {
     const body = req.body ?? {};
     const datos = {};
@@ -115,17 +115,17 @@ export function progresoRouter(db, { ahora = () => new Date() } = {}) {
     }
     const campos = Object.keys(datos);
     if (!campos.length) return falla(res, 400, 'No hay nada para actualizar');
-    db.prepare('INSERT OR IGNORE INTO perfil (id) VALUES (1)').run();
-    db.prepare(`UPDATE perfil SET ${campos.map(c => `${c} = ?`).join(', ')} WHERE id = 1`).run(...campos.map(c => datos[c]));
-    res.json(respuestaPerfil());
+    db.prepare('INSERT OR IGNORE INTO perfil (persona_id) VALUES (?)').run(req.persona);
+    db.prepare(`UPDATE perfil SET ${campos.map(c => `${c} = ?`).join(', ')} WHERE persona_id = ?`).run(...campos.map(c => datos[c]), req.persona);
+    res.json(respuestaPerfil(req.persona));
   });
 
   // ---- Resumen ----
-  router.get('/resumen', (_req, res) => {
+  router.get('/resumen', (req, res) => {
     const filas = db.prepare(`
       SELECT s.id, s.fecha, COALESCE(SUM(CASE WHEN h.hecha = 1 THEN h.peso_kg * h.reps END), 0) AS volumen
       FROM sesiones s LEFT JOIN series_hechas h ON h.sesion_id = s.id
-      WHERE s.estado = 'finalizada' GROUP BY s.id ORDER BY s.fecha`).all();
+      WHERE s.estado = 'finalizada' AND s.persona_id = ? GROUP BY s.id ORDER BY s.fecha`).all(req.persona);
 
     const hoyLocal = hoy();
     const lunes = inicioDeSemana(hoyLocal);
@@ -149,7 +149,7 @@ export function progresoRouter(db, { ahora = () => new Date() } = {}) {
     const series = db.prepare(`
       SELECT h.ejercicio_id, e.nombre, e.img_ini, e.img_fin, e.media_propia, s.id AS sesion_id, s.fecha, h.peso_kg, h.reps
       FROM series_hechas h JOIN sesiones s ON s.id = h.sesion_id JOIN ejercicios e ON e.id = h.ejercicio_id
-      WHERE h.hecha = 1 AND s.estado = 'finalizada' ORDER BY s.fecha, s.id, h.n`).all();
+      WHERE h.hecha = 1 AND s.estado = 'finalizada' AND s.persona_id = ? ORDER BY s.fecha, s.id, h.n`).all(req.persona);
     const mapa = new Map();
     for (const f of series) {
       let r = mapa.get(f.ejercicio_id);
@@ -171,7 +171,7 @@ export function progresoRouter(db, { ahora = () => new Date() } = {}) {
     const ultimaSesion = ultima
       ? db.prepare('SELECT id, titulo, fecha, duracion FROM sesiones WHERE id = ?').get(ultima.id)
       : null;
-    const activa = db.prepare("SELECT id, titulo, fecha FROM sesiones WHERE estado = 'en_curso'").get() ?? null;
+    const activa = db.prepare("SELECT id, titulo, fecha FROM sesiones WHERE estado = 'en_curso' AND persona_id = ?").get(req.persona) ?? null;
 
     res.json({
       semanas,

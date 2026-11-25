@@ -42,23 +42,30 @@ export const PLANTILLAS = [
   },
 ];
 
-const CLAVE = 'plantillas_sembradas';
+export const claveSembrado = personaId => `plantillas_sembradas:${personaId}`;
 
-// Crea las plantillas si nunca se sembraron y no hay rutinas propias. Devuelve cuántas creó.
-export function sembrarPlantillas(db, plantillas = PLANTILLAS) {
-  if (db.prepare('SELECT 1 FROM ajustes WHERE clave = ?').get(CLAVE)) return 0;
-  const hayRutinas = db.prepare('SELECT 1 FROM rutinas LIMIT 1').get();
-  const marcar = () => db.prepare('INSERT INTO ajustes (clave, valor) VALUES (?, ?)').run(CLAVE, new Date().toISOString());
+// Crea las plantillas de cada persona que nunca las recibió y no tiene rutinas propias (o solo de la
+// persona indicada). Devuelve cuántas rutinas creó.
+export function sembrarPlantillas(db, plantillas = PLANTILLAS, personaId = null) {
+  const ids = personaId !== null ? [personaId] : db.prepare('SELECT id FROM personas ORDER BY id').all().map(p => p.id);
+  return ids.reduce((total, id) => total + sembrarPara(db, plantillas, id), 0);
+}
+
+function sembrarPara(db, plantillas, personaId) {
+  const clave = claveSembrado(personaId);
+  if (db.prepare('SELECT 1 FROM ajustes WHERE clave = ?').get(clave)) return 0;
+  const hayRutinas = db.prepare('SELECT 1 FROM rutinas WHERE persona_id = ? LIMIT 1').get(personaId);
+  const marcar = () => db.prepare('INSERT INTO ajustes (clave, valor) VALUES (?, ?)').run(clave, new Date().toISOString());
   if (hayRutinas) { marcar(); return 0; }
 
   const existe = db.prepare('SELECT 1 FROM ejercicios WHERE id = ?');
-  const nuevaRutina = db.prepare('INSERT INTO rutinas (nombre, descripcion) VALUES (?, ?)');
+  const nuevaRutina = db.prepare('INSERT INTO rutinas (nombre, descripcion, persona_id) VALUES (?, ?, ?)');
   const nuevoDia = db.prepare('INSERT INTO rutina_dias (rutina_id, nombre, orden) VALUES (?, ?, ?)');
   const nuevoItem = db.prepare('INSERT INTO rutina_ejercicios (dia_id, ejercicio_id, orden, series, reps, descanso_seg) VALUES (?, ?, ?, ?, ?, ?)');
   db.exec('BEGIN');
   try {
     for (const p of plantillas) {
-      const rutinaId = Number(nuevaRutina.run(p.nombre, p.descripcion).lastInsertRowid);
+      const rutinaId = Number(nuevaRutina.run(p.nombre, p.descripcion, personaId).lastInsertRowid);
       p.dias.forEach((d, i) => {
         const diaId = Number(nuevoDia.run(rutinaId, d.nombre, i).lastInsertRowid);
         d.ejercicios.filter(e => existe.get(e.id)).forEach((e, orden) => nuevoItem.run(diaId, e.id, orden, e.series, e.reps, e.descanso_seg));

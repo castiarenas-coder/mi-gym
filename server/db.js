@@ -158,6 +158,73 @@ export const MIGRACIONES = [
     version: 4,
     sql: `ALTER TABLE perfil ADD COLUMN fecha_nacimiento TEXT;`,
   },
+  {
+    // F7: varias personas ("perfiles"). Todo lo que había pasa a la persona 1, "Yo".
+    version: 5,
+    sql: `
+      CREATE TABLE personas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nombre TEXT NOT NULL,
+        color TEXT NOT NULL DEFAULT '#c6ff3d',
+        avatar TEXT NOT NULL DEFAULT '',
+        creada TEXT NOT NULL
+      );
+      INSERT INTO personas (id, nombre, color, avatar, creada) VALUES (1, 'Yo', '#c6ff3d', '', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+
+      ALTER TABLE rutinas ADD COLUMN persona_id INTEGER REFERENCES personas(id) ON DELETE CASCADE;
+      UPDATE rutinas SET persona_id = 1;
+      CREATE INDEX idx_rutinas_persona ON rutinas(persona_id);
+
+      ALTER TABLE sesiones ADD COLUMN persona_id INTEGER REFERENCES personas(id) ON DELETE CASCADE;
+      ALTER TABLE sesiones ADD COLUMN grupo TEXT;
+      UPDATE sesiones SET persona_id = 1;
+      DROP INDEX idx_sesion_en_curso;
+      -- Una sesión en curso por persona (varias personas pueden entrenar a la vez, en grupo).
+      CREATE UNIQUE INDEX idx_sesion_en_curso ON sesiones(persona_id) WHERE estado = 'en_curso';
+      CREATE INDEX idx_sesiones_persona ON sesiones(persona_id, fecha);
+      CREATE INDEX idx_sesiones_grupo ON sesiones(grupo) WHERE grupo IS NOT NULL;
+
+      ALTER TABLE medidas RENAME TO medidas_v4;
+      CREATE TABLE medidas (
+        persona_id INTEGER NOT NULL REFERENCES personas(id) ON DELETE CASCADE,
+        fecha TEXT NOT NULL,
+        peso_kg REAL,
+        cintura REAL,
+        pecho REAL,
+        brazo REAL,
+        pierna REAL,
+        grasa_pct REAL,
+        PRIMARY KEY (persona_id, fecha)
+      );
+      INSERT INTO medidas (persona_id, fecha, peso_kg, cintura, pecho, brazo, pierna, grasa_pct)
+        SELECT 1, fecha, peso_kg, cintura, pecho, brazo, pierna, grasa_pct FROM medidas_v4;
+      DROP TABLE medidas_v4;
+
+      ALTER TABLE perfil RENAME TO perfil_v4;
+      CREATE TABLE perfil (
+        persona_id INTEGER PRIMARY KEY REFERENCES personas(id) ON DELETE CASCADE,
+        altura REAL,
+        edad INTEGER,
+        sexo TEXT,
+        actividad TEXT,
+        objetivo TEXT,
+        fecha_nacimiento TEXT
+      );
+      INSERT INTO perfil (persona_id, altura, edad, sexo, actividad, objetivo, fecha_nacimiento)
+        SELECT 1, altura, edad, sexo, actividad, objetivo, fecha_nacimiento FROM perfil_v4;
+      DROP TABLE perfil_v4;
+
+      -- Los favoritos pasan a ser de cada persona (la columna vieja de ejercicios queda sin uso).
+      CREATE TABLE favoritos (
+        persona_id INTEGER NOT NULL REFERENCES personas(id) ON DELETE CASCADE,
+        ejercicio_id TEXT NOT NULL REFERENCES ejercicios(id) ON DELETE CASCADE,
+        PRIMARY KEY (persona_id, ejercicio_id)
+      );
+      INSERT INTO favoritos (persona_id, ejercicio_id) SELECT 1, id FROM ejercicios WHERE favorito != 0;
+
+      UPDATE ajustes SET clave = 'plantillas_sembradas:1' WHERE clave = 'plantillas_sembradas';
+    `,
+  },
 ];
 
 export function versionActual(db) {

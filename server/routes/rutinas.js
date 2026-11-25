@@ -45,8 +45,8 @@ export function rutinasRouter(db) {
     try { const r = fn(); db.exec('COMMIT'); return r; } catch (err) { db.exec('ROLLBACK'); throw err; }
   };
 
-  function cargarRutina(id) {
-    const r = db.prepare('SELECT id, nombre, descripcion FROM rutinas WHERE id = ?').get(id);
+  function cargarRutina(id, persona) {
+    const r = db.prepare('SELECT id, nombre, descripcion FROM rutinas WHERE id = ? AND persona_id = ?').get(id, persona);
     if (!r) return null;
     const dias = db.prepare('SELECT id, nombre, orden FROM rutina_dias WHERE rutina_id = ? ORDER BY orden, id').all(id);
     const items = db.prepare(`
@@ -61,8 +61,9 @@ export function rutinasRouter(db) {
     };
   }
 
-  const diaDeRutina = (rutinaId, diaId) =>
-    db.prepare('SELECT id, nombre, orden FROM rutina_dias WHERE id = ? AND rutina_id = ?').get(diaId, rutinaId);
+  const diaDeRutina = (rutinaId, diaId, persona) =>
+    db.prepare('SELECT d.id, d.nombre, d.orden FROM rutina_dias d JOIN rutinas r ON r.id = d.rutina_id WHERE d.id = ? AND d.rutina_id = ? AND r.persona_id = ?').get(diaId, rutinaId, persona);
+  const esMia = (id, persona) => !!db.prepare('SELECT 1 FROM rutinas WHERE id = ? AND persona_id = ?').get(id, persona);
 
   function crearDias(rutinaId, nombres, desde = 0) {
     const ins = db.prepare('INSERT INTO rutina_dias (rutina_id, nombre, orden) VALUES (?, ?, ?)');
@@ -81,12 +82,13 @@ export function rutinasRouter(db) {
     return true;
   }
 
-  router.get('/', (_req, res) => {
-    const rutinas = db.prepare('SELECT id, nombre, descripcion FROM rutinas ORDER BY id').all();
+  router.get('/', (req, res) => {
+    const rutinas = db.prepare('SELECT id, nombre, descripcion FROM rutinas WHERE persona_id = ? ORDER BY id').all(req.persona);
     const dias = db.prepare(`
       SELECT d.id, d.rutina_id, d.nombre, d.orden, COUNT(re.id) AS cantidad
-      FROM rutina_dias d LEFT JOIN rutina_ejercicios re ON re.dia_id = d.id
-      GROUP BY d.id ORDER BY d.orden, d.id`).all();
+      FROM rutina_dias d JOIN rutinas r ON r.id = d.rutina_id AND r.persona_id = ?
+      LEFT JOIN rutina_ejercicios re ON re.dia_id = d.id
+      GROUP BY d.id ORDER BY d.orden, d.id`).all(req.persona);
     res.json(rutinas.map(r => {
       const mios = dias.filter(d => d.rutina_id === r.id).map(({ rutina_id: _r, ...d }) => d);
       return { ...r, dias: mios, total_ejercicios: mios.reduce((n, d) => n + d.cantidad, 0) };
@@ -104,21 +106,21 @@ export function rutinasRouter(db) {
       if (nombresDias.includes(null)) return falla(res, 400, 'Cada día necesita un nombre (máximo 60 caracteres)');
     }
     const id = transaccion(() => {
-      const nuevo = Number(db.prepare('INSERT INTO rutinas (nombre, descripcion) VALUES (?, ?)').run(nombre, descripcion).lastInsertRowid);
+      const nuevo = Number(db.prepare('INSERT INTO rutinas (nombre, descripcion, persona_id) VALUES (?, ?, ?)').run(nombre, descripcion, req.persona).lastInsertRowid);
       crearDias(nuevo, nombresDias);
       return nuevo;
     });
-    res.status(201).json(cargarRutina(id));
+    res.status(201).json(cargarRutina(id, req.persona));
   });
 
   router.get('/:id', (req, res) => {
-    const r = cargarRutina(req.params.id);
+    const r = cargarRutina(req.params.id, req.persona);
     if (!r) return falla(res, 404, 'Rutina no encontrada');
     res.json(r);
   });
 
   router.patch('/:id', (req, res) => {
-    if (!db.prepare('SELECT 1 FROM rutinas WHERE id = ?').get(req.params.id)) return falla(res, 404, 'Rutina no encontrada');
+    if (!esMia(req.params.id, req.persona)) return falla(res, 404, 'Rutina no encontrada');
     const body = req.body ?? {};
     const sets = [];
     const params = [];
@@ -133,21 +135,21 @@ export function rutinasRouter(db) {
     }
     if (!sets.length) return falla(res, 400, 'No hay nada para actualizar');
     db.prepare(`UPDATE rutinas SET ${sets.join(', ')} WHERE id = ?`).run(...params, req.params.id);
-    res.json(cargarRutina(req.params.id));
+    res.json(cargarRutina(req.params.id, req.persona));
   });
 
   router.delete('/:id', (req, res) => {
-    const info = db.prepare('DELETE FROM rutinas WHERE id = ?').run(req.params.id);
+    const info = db.prepare('DELETE FROM rutinas WHERE id = ? AND persona_id = ?').run(req.params.id, req.persona);
     if (!info.changes) return falla(res, 404, 'Rutina no encontrada');
     res.json({ ok: true });
   });
 
   router.post('/:id/duplicar', (req, res) => {
-    const origen = cargarRutina(req.params.id);
+    const origen = cargarRutina(req.params.id, req.persona);
     if (!origen) return falla(res, 404, 'Rutina no encontrada');
     const id = transaccion(() => {
-      const nuevo = Number(db.prepare('INSERT INTO rutinas (nombre, descripcion) VALUES (?, ?)')
-        .run(`${origen.nombre} (copia)`.slice(0, 80), origen.descripcion).lastInsertRowid);
+      const nuevo = Number(db.prepare('INSERT INTO rutinas (nombre, descripcion, persona_id) VALUES (?, ?, ?)')
+        .run(`${origen.nombre} (copia)`.slice(0, 80), origen.descripcion, req.persona).lastInsertRowid);
       const insDia = db.prepare('INSERT INTO rutina_dias (rutina_id, nombre, orden) VALUES (?, ?, ?)');
       const insItem = db.prepare('INSERT INTO rutina_ejercicios (dia_id, ejercicio_id, orden, series, reps, descanso_seg, nota) VALUES (?, ?, ?, ?, ?, ?, ?)');
       origen.dias.forEach((d, i) => {
@@ -156,12 +158,12 @@ export function rutinasRouter(db) {
       });
       return nuevo;
     });
-    res.status(201).json(cargarRutina(id));
+    res.status(201).json(cargarRutina(id, req.persona));
   });
 
   // ---- Días ----
   router.post('/:id/dias', (req, res) => {
-    if (!db.prepare('SELECT 1 FROM rutinas WHERE id = ?').get(req.params.id)) return falla(res, 404, 'Rutina no encontrada');
+    if (!esMia(req.params.id, req.persona)) return falla(res, 404, 'Rutina no encontrada');
     const nombre = texto(req.body?.nombre, 60);
     if (!nombre) return falla(res, 400, 'El día necesita un nombre (máximo 60 caracteres)');
     const orden = db.prepare('SELECT COALESCE(MAX(orden) + 1, 0) AS o FROM rutina_dias WHERE rutina_id = ?').get(req.params.id).o;
@@ -170,14 +172,14 @@ export function rutinasRouter(db) {
   });
 
   router.put('/:id/dias/orden', (req, res) => {
-    if (!db.prepare('SELECT 1 FROM rutinas WHERE id = ?').get(req.params.id)) return falla(res, 404, 'Rutina no encontrada');
+    if (!esMia(req.params.id, req.persona)) return falla(res, 404, 'Rutina no encontrada');
     const actuales = db.prepare('SELECT id FROM rutina_dias WHERE rutina_id = ?').all(req.params.id).map(d => d.id);
     if (!reordenar(res, 'rutina_dias', actuales, req.body?.ids)) return;
-    res.json(cargarRutina(req.params.id));
+    res.json(cargarRutina(req.params.id, req.persona));
   });
 
   router.patch('/:id/dias/:diaId', (req, res) => {
-    const dia = diaDeRutina(req.params.id, req.params.diaId);
+    const dia = diaDeRutina(req.params.id, req.params.diaId, req.persona);
     if (!dia) return falla(res, 404, 'Día no encontrado');
     const nombre = texto(req.body?.nombre, 60);
     if (!nombre) return falla(res, 400, 'El día necesita un nombre (máximo 60 caracteres)');
@@ -186,7 +188,7 @@ export function rutinasRouter(db) {
   });
 
   router.delete('/:id/dias/:diaId', (req, res) => {
-    const dia = diaDeRutina(req.params.id, req.params.diaId);
+    const dia = diaDeRutina(req.params.id, req.params.diaId, req.persona);
     if (!dia) return falla(res, 404, 'Día no encontrado');
     db.prepare('DELETE FROM rutina_dias WHERE id = ?').run(dia.id);
     res.json({ ok: true });
@@ -194,7 +196,7 @@ export function rutinasRouter(db) {
 
   // ---- Ejercicios de un día ----
   router.post('/:id/dias/:diaId/ejercicios', (req, res) => {
-    const dia = diaDeRutina(req.params.id, req.params.diaId);
+    const dia = diaDeRutina(req.params.id, req.params.diaId, req.persona);
     if (!dia) return falla(res, 404, 'Día no encontrado');
     const body = req.body ?? {};
     if (typeof body.ejercicio_id !== 'string' || !db.prepare('SELECT 1 FROM ejercicios WHERE id = ?').get(body.ejercicio_id)) {
@@ -209,15 +211,15 @@ export function rutinasRouter(db) {
   });
 
   router.put('/:id/dias/:diaId/ejercicios/orden', (req, res) => {
-    const dia = diaDeRutina(req.params.id, req.params.diaId);
+    const dia = diaDeRutina(req.params.id, req.params.diaId, req.persona);
     if (!dia) return falla(res, 404, 'Día no encontrado');
     const actuales = db.prepare('SELECT id FROM rutina_ejercicios WHERE dia_id = ?').all(dia.id).map(i => i.id);
     if (!reordenar(res, 'rutina_ejercicios', actuales, req.body?.ids)) return;
-    res.json(cargarRutina(req.params.id));
+    res.json(cargarRutina(req.params.id, req.persona));
   });
 
   const itemDeDia = (req) => {
-    const dia = diaDeRutina(req.params.id, req.params.diaId);
+    const dia = diaDeRutina(req.params.id, req.params.diaId, req.persona);
     if (!dia) return null;
     return db.prepare('SELECT id, dia_id FROM rutina_ejercicios WHERE id = ? AND dia_id = ?').get(req.params.itemId, dia.id) ?? null;
   };
