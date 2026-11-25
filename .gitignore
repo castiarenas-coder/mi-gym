@@ -4,3 +4,6 @@ data/
 backups/
 *.log
 .env*
+dist-catalogo/
+release/
+.cache/
