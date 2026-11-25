@@ -24,7 +24,7 @@ export function direccionesLan(port) {
     .map(i => `http://${i.address}:${port}`);
 }
 
-export function createApp({ db, imgDir, mediaDir, clientDir, version = '0.0.0', ahora = () => new Date(), dbFile = null, backupsDir = null, lan = false, port = 0, direcciones = direccionesLan, actualizacion = null, apagar = null }) {
+export function createApp({ db, imgDir, mediaDir, clientDir, version = '0.0.0', ahora = () => new Date(), dbFile = null, backupsDir = null, lan = false, port = 0, plataforma = 'escritorio', direcciones = direccionesLan, actualizacion = null, apagar = null }) {
   const comprobarActualizacion = actualizacion ?? crearComprobador({ version });
   const app = express();
   app.disable('x-powered-by');
@@ -41,7 +41,7 @@ export function createApp({ db, imgDir, mediaDir, clientDir, version = '0.0.0', 
     const qr = urls[0] ? await QRCode.toString(urls[0], { type: 'svg', margin: 1, color: { dark: '#000', light: '#fff' } }) : null;
     res.json({
       version, schema_version: versionActual(db), db: dbFile, respaldos_dir: backupsDir,
-      ultimo_respaldo: respaldos[0]?.fecha ?? null, lan, urls, qr, apagable: Boolean(apagar),
+      ultimo_respaldo: respaldos[0]?.fecha ?? null, lan, urls, qr, apagable: Boolean(apagar), plataforma,
     });
   });
   app.get('/api/actualizacion', async (_req, res) => res.json(await comprobarActualizacion()));

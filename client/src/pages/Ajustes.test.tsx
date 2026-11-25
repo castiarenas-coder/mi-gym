@@ -106,6 +106,23 @@ describe('página Ajustes', () => {
     expect(screen.getByRole('img', { name: /Código QR/ })).toBeInTheDocument()
   })
 
+  it('en Android no muestra "Abrir en el celular" ni "Cerrar Mi Gym" y habla de "este celular"', async () => {
+    api({ ...INFO, plataforma: 'android', apagable: true })
+    verApp('/ajustes')
+    await screen.findByText(/versión 0\.1\.0/)
+    expect(screen.queryByRole('region', { name: 'Abrir en el celular' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Cerrar Mi Gym/ })).not.toBeInTheDocument()
+    expect(screen.getByText(/Todo se guarda en este celular/)).toBeInTheDocument()
+    expect(screen.queryByText(/otra PC/)).not.toBeInTheDocument()
+  })
+
+  it('en PC sigue mostrando "Abrir en el celular" y "esta PC"', async () => {
+    api({ ...INFO, plataforma: 'escritorio' })
+    verApp('/ajustes')
+    expect(await screen.findByRole('region', { name: 'Abrir en el celular' })).toBeInTheDocument()
+    expect(screen.getByText(/Todo se guarda en esta PC/)).toBeInTheDocument()
+  })
+
   it('muestra la versión y los créditos', async () => {
     api()
     verApp('/ajustes')

@@ -137,6 +137,7 @@ export function Ajustes() {
   })
 
   const i = info.data
+  const enAndroid = i?.plataforma === 'android'
   return (
     <div className="pagina">
       <h1>Ajustes</h1>
@@ -146,7 +147,7 @@ export function Ajustes() {
 
       <section className="tarjeta bloque" aria-labelledby="aj-datos">
         <h2 id="aj-datos" className="bloque__titulo">Tus datos</h2>
-        <p className="bloque__ayuda">Todo se guarda en esta PC, en un solo archivo. No sale a internet.</p>
+        <p className="bloque__ayuda">Todo se guarda en {enAndroid ? 'este celular' : 'esta PC'}, en un solo archivo. No sale a internet.</p>
         {i && (
           <dl className="datos">
             <dt>Ubicación</dt><dd className="datos__ruta">{i.db ?? 'No disponible'}</dd>
@@ -175,7 +176,7 @@ export function Ajustes() {
 
       <section className="tarjeta bloque" aria-labelledby="aj-export">
         <h2 id="aj-export" className="bloque__titulo">Exportar / importar</h2>
-        <p className="bloque__ayuda">Un archivo con las personas y sus rutinas, entrenamientos, medidas y favoritos. Sirve para llevarlos a otra PC o guardarlos en la nube.</p>
+        <p className="bloque__ayuda">Un archivo con las personas y sus rutinas, entrenamientos, medidas y favoritos. {enAndroid ? 'Sirve para llevarlos a otro celular o guardarlos en la nube. Si desinstalás Mi Gym, los datos del celular se borran: guardá un archivo antes.' : 'Sirve para llevarlos a otra PC o guardarlos en la nube.'}</p>
         <div className="acciones">
           <a className="boton boton--secundario" href="/api/respaldo/exportar" download><Download size={18} aria-hidden /> Exportar mis datos</a>
           <button type="button" className="boton boton--secundario" onClick={() => archivoRef.current?.click()}><Upload size={18} aria-hidden /> Importar desde un archivo</button>
@@ -183,20 +184,22 @@ export function Ajustes() {
         </div>
       </section>
 
-      <section className="tarjeta bloque" aria-labelledby="aj-celu">
-        <h2 id="aj-celu" className="bloque__titulo">Abrir en el celular</h2>
-        {i?.lan ? (
-          i.urls.length > 0 ? (
-            <>
-              <p className="bloque__ayuda">Con el celular conectado al mismo wifi, escaneá el código o escribí la dirección.</p>
-              {i.qr && <div className="qr" role="img" aria-label="Código QR para abrir en el celular" dangerouslySetInnerHTML={{ __html: i.qr }} />}
-              <ul className="direcciones">{i.urls.map(u => <li key={u}><code>{u}</code></li>)}</ul>
-            </>
-          ) : <p className="aviso">No encontramos una red a la que conectar el celular.</p>
-        ) : (
-          <p className="bloque__ayuda">Ahora la app solo se abre en esta PC. Para usarla desde el celular, cerrala y arrancá con <code>npm run lan</code>; acá van a aparecer la dirección y un código QR.</p>
-        )}
-      </section>
+      {!enAndroid && (
+        <section className="tarjeta bloque" aria-labelledby="aj-celu">
+          <h2 id="aj-celu" className="bloque__titulo">Abrir en el celular</h2>
+          {i?.lan ? (
+            i.urls.length > 0 ? (
+              <>
+                <p className="bloque__ayuda">Con el celular conectado al mismo wifi, escaneá el código o escribí la dirección.</p>
+                {i.qr && <div className="qr" role="img" aria-label="Código QR para abrir en el celular" dangerouslySetInnerHTML={{ __html: i.qr }} />}
+                <ul className="direcciones">{i.urls.map(u => <li key={u}><code>{u}</code></li>)}</ul>
+              </>
+            ) : <p className="aviso">No encontramos una red a la que conectar el celular.</p>
+          ) : (
+            <p className="bloque__ayuda">Ahora la app solo se abre en esta PC. Para usarla desde el celular, cerrala y arrancá con <code>npm run lan</code>; acá van a aparecer la dirección y un código QR.</p>
+          )}
+        </section>
+      )}
 
       <section className="tarjeta bloque" aria-labelledby="aj-acerca">
         <h2 id="aj-acerca" className="bloque__titulo">Acerca de</h2>
@@ -208,7 +211,7 @@ export function Ajustes() {
           </p>
         )}
         <p className="bloque__ayuda">Catálogo de ejercicios: free-exercise-db, de dominio público. Inspirado en doubtcrack/Fitness (licencia MIT).</p>
-        {i?.apagable && (
+        {i?.apagable && !enAndroid && (
           cerrada ? <p className="aviso" role="status">Mi Gym se cerró. Ya podés cerrar esta ventana.</p> : (
             <>
               <button type="button" className="boton boton--secundario" onClick={() => setACerrar(true)}><Power size={18} aria-hidden /> Cerrar Mi Gym</button>

@@ -56,3 +56,10 @@ test('esLoopback reconoce solo direcciones de la propia PC', () => {
   for (const a of ['127.0.0.1', '::1', '::ffff:127.0.0.1']) assert.equal(esLoopback(a), true, a);
   for (const a of ['192.168.1.40', '10.0.0.2', undefined, '::ffff:192.168.1.40']) assert.equal(esLoopback(a), false, String(a));
 });
+
+test('/api/info informa la plataforma (android oculta en la app lo que solo sirve en PC)', async () => {
+  const pc = await servidorDePrueba();
+  try { assert.equal((await pc.pedir('/api/info')).json.plataforma, 'escritorio'); } finally { pc.cerrar(); }
+  const android = await servidorDePrueba({ plataforma: 'android' });
+  try { assert.equal((await android.pedir('/api/info')).json.plataforma, 'android'); } finally { android.cerrar(); }
+});

@@ -13,6 +13,8 @@ export interface Info {
   qr: string | null
   /** La versión instalada permite cerrar el servidor desde la app. */
   apagable?: boolean
+  /** 'android' en la app del celular (todo corre adentro del teléfono); 'escritorio' en la PC. */
+  plataforma?: 'android' | 'escritorio'
 }
 
 export interface Actualizacion { actual: string; ultima: string | null; hay_nueva: boolean; url: string | null }

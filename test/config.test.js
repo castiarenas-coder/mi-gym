@@ -36,3 +36,9 @@ test('MI_GYM_IMG y MI_GYM_CATALOGO apuntan al catálogo empaquetado; las variabl
   assert.equal(c.port, 9000);
   assert.equal(c.instalado, true);
 });
+
+test('MI_GYM_PLATAFORMA=android marca la app del celular; sin ella es de escritorio', () => {
+  assert.equal(resolverConfig({}, raiz).plataforma, 'escritorio');
+  assert.equal(resolverConfig({ MI_GYM_PLATAFORMA: 'android' }, raiz).plataforma, 'android');
+  assert.equal(resolverConfig({ MI_GYM_PLATAFORMA: 'otra' }, raiz).plataforma, 'escritorio');
+});
