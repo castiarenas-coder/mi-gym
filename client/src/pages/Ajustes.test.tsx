@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { instalarApi, verApp } from '../test/utils'
 
 const INFO = {
-  version: '0.1.0', schema_version: 4, db: 'D:\\apps\\Mi_Gym\\data\\mi_gym.db', respaldos_dir: 'D:\\apps\\Mi_Gym\\backups',
+  version: '0.1.0', schema_version: 4, db: 'C:\\Mi_Gym\\data\\mi_gym.db', respaldos_dir: 'C:\\Mi_Gym\\backups',
   ultimo_respaldo: '2026-11-25T12:00:00.000Z', lan: false, urls: [] as string[], qr: null as string | null,
 }
 const LISTA = [{ archivo: 'mi_gym-20261125-1200.db', fecha: '2026-11-25T12:00:00.000Z', tamano: 2048 }]
@@ -29,7 +29,7 @@ describe('página Ajustes', () => {
   it('muestra dónde viven los datos y los respaldos', async () => {
     api()
     verApp('/ajustes')
-    expect(await screen.findByText('D:\\apps\\Mi_Gym\\data\\mi_gym.db')).toBeInTheDocument()
+    expect(await screen.findByText('C:\\Mi_Gym\\data\\mi_gym.db')).toBeInTheDocument()
     const lista = await screen.findByRole('list', { name: 'Respaldos' })
     expect(within(lista).getByText(/mi_gym-20261125-1200\.db/)).toBeInTheDocument()
   })

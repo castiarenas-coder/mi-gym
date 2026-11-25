@@ -1,26 +1,36 @@
 # Mi Gym
 
-Ejercicios, rutinas y progreso, todo en español y guardado en tu PC. Sin cuentas, sin internet para usarla y sin suscripciones.
+Tu gimnasio en tu PC: ejercicios, rutinas y progreso, todo en español, sin cuentas, sin suscripciones y sin mandar tus datos a ningún lado.
 
-- Catálogo de unos 870 ejercicios con fotos y pasos explicados en español.
-- Rutinas por días, con tus propios ejercicios, series y descansos.
-- Entrenamientos en vivo: marcás cada serie, con temporizador de descanso y calculadora de discos.
-- Varias personas en la misma app, cada una con lo suyo, y entrenamientos en grupo.
-- Historial, récords, gráficos de volumen y medidas corporales.
+## Qué hace
+
+- **Catálogo de 876 ejercicios en español**, con animación (fotos), músculos, equipo y pasos explicados.
+- **Rutinas** por días, con tus propios ejercicios, series, repeticiones y descansos.
+- **Entrenar** con cronómetro, temporizador de descanso y calculadora de discos: marcás cada serie al hacerla.
+- **Entrenar en grupo**: varias personas en el mismo entrenamiento, cada una con sus propios pesos.
+- **Varias personas** en la misma app, cada una con lo suyo.
+- **Progreso y medidas**: historial, récords, gráficos de volumen y medidas corporales.
+- **Calculadora** de IMC y calorías.
+- **Todo local y sin cuentas**: los datos viven en una base SQLite en tu carpeta.
+- **Backups**: respaldo automático, exportar/importar a archivo y restaurar.
 - Funciona también desde el celular, con el wifi de tu casa.
 
-## Requisitos
+## Instalación rápida
 
-- Windows (el acceso directo es solo para Windows; el resto funciona en cualquier sistema).
-- [Node.js](https://nodejs.org) 22.19 o más nuevo.
-
-## Instalación
+Requisitos: [Node.js](https://nodejs.org) 22 o más nuevo (22.19+).
 
 ```bash
+git clone https://github.com/castiarenas-coder/mi-gym.git
+cd mi-gym
 npm install
-npm run importar   # descarga el catálogo y las fotos (una sola vez, necesita internet)
+npm run importar   # baja ~100 MB de fotos del catálogo (una sola vez, necesita internet)
 npm run build      # compila la interfaz
+npm start
 ```
+
+Abrí <http://127.0.0.1:8788> en el navegador.
+
+El acceso directo en el Escritorio es opcional y solo para Windows (`npm run acceso-directo`, ver más abajo).
 
 ## Uso
 
@@ -87,8 +97,6 @@ Protección contra pérdidas, de menos a más segura:
 - **Desde un archivo exportado**: **Ajustes → Importar desde un archivo**. También hace un respaldo previo. Solo acepta archivos de la misma versión de la app; si es más vieja, restaurá un respaldo de la lista.
 - **Desde la consola** (con el servidor apagado): `npm run backup` hace uno ahora y `npm run restore` vuelve al más reciente (o `npm run restore -- ruta/al/archivo.db`).
 
-## Créditos y licencias
+## Licencia
 
-- Catálogo de ejercicios: [free-exercise-db](https://github.com/yuhonas/free-exercise-db), de dominio público. Los nombres y pasos en español son una traducción propia.
-- Inspirado en [doubtcrack/Fitness](https://github.com/doubtcrack/Fitness) (licencia MIT).
-- Mi Gym se distribuye bajo licencia MIT.
+Mi Gym se distribuye bajo licencia MIT: ver [LICENSE](LICENSE). Los datos, imágenes, tipografías y proyectos que inspiraron esta app tienen sus propias licencias, detalladas en [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
