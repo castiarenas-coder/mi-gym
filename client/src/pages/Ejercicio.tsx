@@ -142,9 +142,9 @@ export function Ejercicio() {
 
       <section className="tarjeta bloque" aria-labelledby="como-hacerlo">
         <h2 id="como-hacerlo" className="bloque__titulo">Cómo hacerlo</h2>
-        {e.traducido === 0 && <p className="aviso aviso--suave">Instrucciones en inglés, pendientes de traducción</p>}
+        {e.traducido === 0 && e.instrucciones.length > 0 && <p className="aviso aviso--suave">Instrucciones en inglés, pendientes de traducción</p>}
         {e.instrucciones.length === 0
-          ? <p className="bloque__ayuda">Este ejercicio todavía no tiene instrucciones.</p>
+          ? <p className="bloque__ayuda">Sin instrucciones</p>
           : (
             <ol className="pasos" aria-label="Instrucciones">
               {e.instrucciones.map((p, i) => <li key={i}>{p}</li>)}

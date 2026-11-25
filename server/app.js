@@ -1,23 +1,45 @@
 import express from 'express';
 import compression from 'compression';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+import QRCode from 'qrcode';
 import { ejerciciosRouter } from './routes/ejercicios.js';
 import { rutinasRouter } from './routes/rutinas.js';
 import { sesionesRouter } from './routes/sesiones.js';
 import { progresoRouter } from './routes/progreso.js';
+import { respaldoRouter, listarArchivos } from './respaldo.js';
+import { versionActual } from './db.js';
 
 export function leerVersion(raiz) {
   try { return JSON.parse(fs.readFileSync(path.join(raiz, 'package.json'), 'utf8')).version; } catch { return '0.0.0'; }
 }
 
-export function createApp({ db, imgDir, mediaDir, clientDir, version = '0.0.0', ahora = () => new Date() }) {
+export function direccionesLan(port) {
+  return Object.values(os.networkInterfaces()).flat()
+    .filter(i => i && i.family === 'IPv4' && !i.internal)
+    .map(i => `http://${i.address}:${port}`);
+}
+
+export function createApp({ db, imgDir, mediaDir, clientDir, version = '0.0.0', ahora = () => new Date(), dbFile = null, backupsDir = null, lan = false, port = 0, direcciones = direccionesLan }) {
   const app = express();
   app.disable('x-powered-by');
   app.use(compression());
+  // La importación de un respaldo puede pesar más que el resto de los cuerpos JSON.
+  app.use('/api/respaldo/importar', express.json({ limit: '30mb' }));
   app.use(express.json({ limit: '1mb' }));
 
   app.get('/api/salud', (_req, res) => res.json({ ok: true, version }));
+  // Datos para la pantalla de Ajustes: dónde viven los datos, último respaldo y cómo abrir desde el celular.
+  app.get('/api/info', async (_req, res) => {
+    const respaldos = backupsDir ? listarArchivos(backupsDir) : [];
+    const urls = lan ? direcciones(port) : [];
+    const qr = urls[0] ? await QRCode.toString(urls[0], { type: 'svg', margin: 1, color: { dark: '#000', light: '#fff' } }) : null;
+    res.json({
+      version, schema_version: versionActual(db), db: dbFile, respaldos_dir: backupsDir,
+      ultimo_respaldo: respaldos[0]?.fecha ?? null, lan, urls, qr,
+    });
+  });
   const sesiones = sesionesRouter(db, { ahora });
   const progreso = progresoRouter(db, { ahora });
   app.use('/api/ejercicios', sesiones.porEjercicio);
@@ -27,6 +49,7 @@ export function createApp({ db, imgDir, mediaDir, clientDir, version = '0.0.0', 
   app.use('/api/medidas', progreso.medidas);
   app.use('/api/perfil', progreso.perfil);
   app.use('/api/progreso', progreso.router);
+  if (backupsDir) app.use('/api/respaldo', respaldoRouter(db, { backupsDir, ahora }));
   app.use('/api', (_req, res) => res.status(404).json({ error: 'No existe' }));
 
   if (mediaDir) app.use('/media', express.static(mediaDir, { fallthrough: false }));

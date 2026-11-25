@@ -55,6 +55,13 @@ describe('ficha de ejercicio', () => {
     expect(screen.getByText('Stand up.')).toBeInTheDocument()
   })
 
+  it('sin instrucciones no muestra el aviso de traducción pendiente', async () => {
+    api({ ...DETALLE, traducido: 0, instrucciones: [] })
+    verApp('/ejercicios/Sentadilla')
+    expect(await screen.findByText('Sin instrucciones')).toBeInTheDocument()
+    expect(screen.queryByText(/pendientes de traducción/)).not.toBeInTheDocument()
+  })
+
   it('alterna el favorito', async () => {
     const { llamadas } = api()
     verApp('/ejercicios/Sentadilla')

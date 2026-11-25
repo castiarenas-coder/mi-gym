@@ -1,0 +1,121 @@
+// Exportar / importar / restaurar los datos del usuario. Todo el reemplazo ocurre en una sola
+// transacción y SIEMPRE después de guardar un respaldo de seguridad de lo que había.
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import express from 'express';
+import { DatabaseSync } from 'node:sqlite';
+import { backupDb } from './backup.js';
+import { openDb, versionActual } from './db.js';
+
+// Orden de inserción (padres antes que hijos). Para borrar se recorre al revés.
+export const TABLAS_USUARIO = ['rutinas', 'rutina_dias', 'rutina_ejercicios', 'sesiones', 'sesion_ejercicios', 'series_hechas', 'medidas', 'perfil', 'ajustes'];
+
+export class ErrorRespaldo extends Error {
+  constructor(mensaje, status = 400) { super(mensaje); this.status = status; }
+}
+
+export function exportarDatos(db, { ahora = new Date() } = {}) {
+  const datos = {
+    app: 'mi-gym',
+    schema_version: versionActual(db),
+    fecha: ahora.toISOString(),
+  };
+  for (const t of TABLAS_USUARIO) datos[t] = db.prepare(`SELECT * FROM ${t}`).all().map(f => ({ ...f }));
+  datos.ejercicios = db.prepare('SELECT id, favorito, media_propia FROM ejercicios WHERE favorito != 0 OR media_propia IS NOT NULL ORDER BY id').all().map(f => ({ ...f }));
+  return datos;
+}
+
+function validar(datos, db) {
+  if (!datos || typeof datos !== 'object' || Array.isArray(datos) || datos.app !== 'mi-gym') throw new ErrorRespaldo('El archivo no es un respaldo de Mi Gym.');
+  if (!Number.isInteger(datos.schema_version) || datos.schema_version < 1) throw new ErrorRespaldo('El archivo no indica la versión de los datos.');
+  const actual = versionActual(db);
+  if (datos.schema_version > actual) throw new ErrorRespaldo('El archivo viene de una versión más nueva de Mi Gym. Actualizá la app antes de importarlo.', 409);
+  if (datos.schema_version < actual) throw new ErrorRespaldo('El archivo viene de una versión más vieja de Mi Gym y no se puede importar. Restaurá un respaldo de la lista en su lugar.', 409);
+  for (const t of [...TABLAS_USUARIO, 'ejercicios']) {
+    if (!Array.isArray(datos[t])) throw new ErrorRespaldo(`Al archivo le falta la sección "${t}".`);
+    if (datos[t].some(f => !f || typeof f !== 'object' || Array.isArray(f))) throw new ErrorRespaldo(`La sección "${t}" tiene filas inválidas.`);
+  }
+}
+
+// Reemplaza los datos del usuario por `datos`. Hace un respaldo de seguridad antes (si hay carpeta).
+export function importarDatos(db, datos, { backupsDir } = {}) {
+  validar(datos, db);
+  let seguridad = null;
+  if (backupsDir) seguridad = path.basename(backupDb(db, backupsDir));
+  db.exec('BEGIN');
+  try {
+    for (const t of [...TABLAS_USUARIO].reverse()) db.exec(`DELETE FROM ${t}`);
+    db.exec("UPDATE ejercicios SET favorito = 0, media_propia = NULL");
+    for (const t of TABLAS_USUARIO) {
+      const columnas = new Set(db.prepare(`PRAGMA table_info(${t})`).all().map(c => c.name));
+      for (const fila of datos[t]) {
+        const cols = Object.keys(fila).filter(c => columnas.has(c));
+        if (!cols.length) continue;
+        db.prepare(`INSERT INTO ${t} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`)
+          .run(...cols.map(c => (typeof fila[c] === 'boolean' ? Number(fila[c]) : fila[c] ?? null)));
+      }
+    }
+    const marcar = db.prepare('UPDATE ejercicios SET favorito = ?, media_propia = ? WHERE id = ?');
+    for (const e of datos.ejercicios) marcar.run(e.favorito ? 1 : 0, e.media_propia ?? null, String(e.id));
+    if (db.prepare('PRAGMA foreign_key_check').all().length) throw new ErrorRespaldo('El archivo tiene referencias a ejercicios o rutinas que no existen.');
+    db.exec('COMMIT');
+  } catch (err) {
+    try { db.exec('ROLLBACK'); } catch { /* ya cerrada */ }
+    if (err instanceof ErrorRespaldo) throw err;
+    throw new ErrorRespaldo(`No se pudo importar: ${err.message}`);
+  }
+  return { ok: true, respaldo_previo: seguridad };
+}
+
+export function listarArchivos(backupsDir) {
+  if (!fs.existsSync(backupsDir)) return [];
+  return fs.readdirSync(backupsDir)
+    .filter(f => /^[\w.-]+\.db$/.test(f))
+    .map(f => { const st = fs.statSync(path.join(backupsDir, f)); return { archivo: f, fecha: st.mtime.toISOString(), tamano: st.size }; })
+    .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.archivo.localeCompare(a.archivo));
+}
+
+// Restaura un respaldo dentro de la base abierta (sin tocar el archivo en uso).
+export function restaurarArchivo(db, backupsDir, archivo) {
+  const elegido = listarArchivos(backupsDir).find(b => b.archivo === archivo);
+  if (typeof archivo !== 'string' || !elegido) throw new ErrorRespaldo('Ese respaldo no existe.', 404);
+  const origen = path.join(backupsDir, elegido.archivo);
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'migym-rest-'));
+  const copia = path.join(tmpDir, 'copia.db');
+  let datos;
+  try {
+    fs.copyFileSync(origen, copia);
+    const prueba = new DatabaseSync(copia);
+    try { prueba.prepare('SELECT COUNT(*) FROM ejercicios').get(); } catch { throw new ErrorRespaldo('Ese archivo no es un respaldo válido.'); } finally { prueba.close(); }
+    const version = (() => { const t = new DatabaseSync(copia); try { return versionActual(t); } finally { t.close(); } })();
+    if (version > versionActual(db)) throw new ErrorRespaldo('Ese respaldo viene de una versión más nueva de Mi Gym.', 409);
+    const t = openDb(copia); // la sube a la versión actual si era más vieja
+    try { datos = exportarDatos(t); } finally { t.close(); }
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+  return importarDatos(db, datos, { backupsDir });
+}
+
+export function respaldoRouter(db, { backupsDir, ahora = () => new Date() }) {
+  const router = express.Router();
+  router.get('/exportar', (_req, res) => {
+    const datos = exportarDatos(db, { ahora: ahora() });
+    const nombre = `mi-gym-${datos.fecha.slice(0, 10)}.json`;
+    res.setHeader('Content-Disposition', `attachment; filename="${nombre}"`);
+    res.json(datos);
+  });
+  router.post('/importar', (req, res) => res.json(importarDatos(db, req.body, { backupsDir })));
+  router.get('/lista', (_req, res) => res.json(listarArchivos(backupsDir)));
+  router.post('/ahora', (_req, res) => {
+    const archivo = path.basename(backupDb(db, backupsDir, { now: ahora() }));
+    res.status(201).json({ archivo, lista: listarArchivos(backupsDir) });
+  });
+  router.post('/restaurar', (req, res) => res.json(restaurarArchivo(db, backupsDir, req.body?.archivo)));
+  router.use((err, _req, res, next) => {
+    if (err instanceof ErrorRespaldo) return res.status(err.status).json({ error: err.message });
+    next(err);
+  });
+  return router;
+}

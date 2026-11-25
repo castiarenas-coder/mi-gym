@@ -1,4 +1,5 @@
 import os from 'node:os';
+import path from 'node:path';
 import { config } from './config.js';
 import { openDb } from './db.js';
 import { createApp, leerVersion } from './app.js';
@@ -10,7 +11,7 @@ const host = lan ? '0.0.0.0' : '127.0.0.1';
 
 const db = openDb(config.dbFile);
 try { sembrarPlantillas(db); } catch (err) { console.error('[plantillas]', err.message); }
-const app = createApp({ db, imgDir: config.imgDir, mediaDir: config.mediaDir, clientDir: config.clientDir, version: leerVersion(config.raiz) });
+const app = createApp({ db, imgDir: config.imgDir, mediaDir: config.mediaDir, clientDir: config.clientDir, version: leerVersion(config.raiz), dbFile: path.resolve(config.dbFile), backupsDir: config.backupsDir, lan, port: config.port });
 
 // Respaldo diario automático: al arrancar y cada 24 h.
 function respaldar() {
