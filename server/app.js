@@ -11,6 +11,8 @@ import { progresoRouter } from './routes/progreso.js';
 import { respaldoRouter, listarArchivos } from './respaldo.js';
 import { versionActual } from './db.js';
 import { conPersona, personasRouter } from './personas.js';
+import { crearComprobador } from './actualizacion.js';
+import { esLoopback } from './puerto.js';
 
 export function leerVersion(raiz) {
   try { return JSON.parse(fs.readFileSync(path.join(raiz, 'package.json'), 'utf8')).version; } catch { return '0.0.0'; }
@@ -22,7 +24,8 @@ export function direccionesLan(port) {
     .map(i => `http://${i.address}:${port}`);
 }
 
-export function createApp({ db, imgDir, mediaDir, clientDir, version = '0.0.0', ahora = () => new Date(), dbFile = null, backupsDir = null, lan = false, port = 0, direcciones = direccionesLan }) {
+export function createApp({ db, imgDir, mediaDir, clientDir, version = '0.0.0', ahora = () => new Date(), dbFile = null, backupsDir = null, lan = false, port = 0, direcciones = direccionesLan, actualizacion = null, apagar = null }) {
+  const comprobarActualizacion = actualizacion ?? crearComprobador({ version });
   const app = express();
   app.disable('x-powered-by');
   app.use(compression());
@@ -38,9 +41,18 @@ export function createApp({ db, imgDir, mediaDir, clientDir, version = '0.0.0', 
     const qr = urls[0] ? await QRCode.toString(urls[0], { type: 'svg', margin: 1, color: { dark: '#000', light: '#fff' } }) : null;
     res.json({
       version, schema_version: versionActual(db), db: dbFile, respaldos_dir: backupsDir,
-      ultimo_respaldo: respaldos[0]?.fecha ?? null, lan, urls, qr,
+      ultimo_respaldo: respaldos[0]?.fecha ?? null, lan, urls, qr, apagable: Boolean(apagar),
     });
   });
+  app.get('/api/actualizacion', async (_req, res) => res.json(await comprobarActualizacion()));
+  // Cierra el servidor (botón "Cerrar Mi Gym"). Solo si quien arranca la app lo habilita y solo desde esta PC.
+  if (apagar) {
+    app.post('/api/apagar', (req, res) => {
+      if (!esLoopback(req.socket.remoteAddress)) return res.status(403).json({ error: 'Solo desde esta PC' });
+      res.json({ ok: true });
+      res.on('finish', () => setTimeout(apagar, 50));
+    });
+  }
   const sesiones = sesionesRouter(db, { ahora });
   const progreso = progresoRouter(db, { ahora });
   app.use('/api/personas', personasRouter(db));
