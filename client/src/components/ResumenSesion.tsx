@@ -1,13 +1,14 @@
+import type { ReactNode } from 'react'
 import { Trophy } from 'lucide-react'
 import type { Sesion } from '../api/tipos'
 import { duracionLarga, kg, miles } from '../lib/formato'
 
 /** Números de una sesión terminada: duración, volumen, series y récords nuevos. */
-export function ResumenSesion({ sesion, titulo }: { sesion: Sesion; titulo?: string }) {
+export function ResumenSesion({ sesion, titulo, region = 'Resumen del entrenamiento', icono }: { sesion: Sesion; titulo?: string; region?: string; icono?: ReactNode }) {
   const { resumen } = sesion
   return (
-    <section className="tarjeta resumen-sesion" aria-label="Resumen del entrenamiento">
-      {titulo && <h2 className="resumen-sesion__titulo">{titulo}</h2>}
+    <section className="tarjeta resumen-sesion" aria-label={region}>
+      {titulo && <h2 className="resumen-sesion__titulo">{icono} {titulo}</h2>}
       <dl className="estadisticas">
         <div className="estadistica"><dt>Duración</dt><dd>{duracionLarga(sesion.duracion)}</dd></div>
         <div className="estadistica"><dt>Volumen total</dt><dd>{miles(resumen.volumen_kg)} kg</dd></div>

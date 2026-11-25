@@ -32,6 +32,7 @@ export function Historial() {
                 <strong>{s.titulo}</strong>
                 <span>{duracionLarga(s.duracion)} · {s.series_hechas} series · {miles(s.volumen_kg)} kg</span>
                 {s.nombres.length > 0 && <span className="historial__nombres">{s.nombres.join(', ')}</span>}
+                {s.con && s.con.length > 0 && <span className="historial__con">Con {s.con.join(', ')}</span>}
               </span>
               <ChevronRight size={20} aria-hidden />
             </Link>

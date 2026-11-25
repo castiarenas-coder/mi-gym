@@ -1,0 +1,52 @@
+/* ---- Personas: avatares, pantalla "¿Quién entrena?" y pestañas del entrenamiento en grupo ---- */
+.avatar { display: inline-grid; place-items: center; border-radius: 50%; color: #0b0d10; font-weight: 800; line-height: 1; flex: none; user-select: none; }
+.avatar--chico { width: 24px; height: 24px; font-size: 0.8rem; }
+.avatar--medio { width: 40px; height: 40px; font-size: 1.25rem; }
+.avatar--grande { width: 84px; height: 84px; font-size: 2.6rem; }
+.avatar--vacio { background: var(--superficie-2); color: var(--texto-suave); border: 2px dashed var(--borde); }
+
+.pantalla-estado { min-height: 100vh; display: grid; place-content: center; justify-items: center; gap: 12px; padding: var(--espacio); color: var(--texto-suave); text-align: center; }
+
+.elegir-persona { min-height: 100vh; display: grid; align-content: center; justify-items: center; gap: 28px; padding: 32px var(--espacio); }
+.elegir-persona__titulo { font-size: 1.7rem; text-align: center; margin: 0; }
+.elegir-persona__lista { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; max-width: 640px; }
+.elegir-persona__nueva { width: 100%; max-width: 440px; }
+.ficha-persona { display: grid; justify-items: center; gap: 10px; width: 116px; padding: 10px 6px; background: none; border: 2px solid transparent; border-radius: var(--radio-m); }
+.ficha-persona:hover, .ficha-persona:focus-visible { border-color: var(--borde); background: var(--superficie); }
+.ficha-persona--actual { border-color: var(--acento); }
+.ficha-persona__nombre { font-weight: 700; word-break: break-word; text-align: center; }
+.ficha-persona--agregar .ficha-persona__nombre { color: var(--texto-suave); font-weight: 600; }
+
+.header__persona { margin-left: auto; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; background: none; border: 0; border-radius: 50%; }
+.header__persona:hover .avatar { box-shadow: 0 0 0 2px var(--acento); }
+.header__persona + .header__ajustes { margin-left: 0; }
+
+.form-persona { display: grid; gap: 14px; }
+.form-persona__vista { display: grid; place-items: center; }
+.opciones { display: flex; flex-wrap: wrap; gap: 8px; }
+.opcion { min-width: 44px; height: 44px; display: grid; place-items: center; padding: 0 6px; font-size: 1.3rem; background: var(--superficie-2); border: 2px solid var(--borde); border-radius: 50%; }
+.opcion--color { width: 44px; padding: 0; }
+.opcion--activa { border-color: var(--texto); box-shadow: 0 0 0 2px var(--acento); }
+
+.lista-personas { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.persona-fila { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.persona-fila__nombre { flex: 1; min-width: 0; font-weight: 700; word-break: break-word; }
+
+.con-quien { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.interruptor { width: 100%; display: flex; align-items: center; gap: 12px; min-height: var(--toque); padding: 6px 12px; background: var(--superficie-2); border: 1px solid var(--borde); border-radius: var(--radio-m); text-align: left; }
+.interruptor__nombre { flex: 1; font-weight: 700; }
+.interruptor__pista { position: relative; width: 46px; height: 26px; border-radius: 13px; background: var(--borde); flex: none; transition: background 0.15s; }
+.interruptor__pista::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--texto); transition: transform 0.15s; }
+.interruptor[aria-checked='true'] { border-color: var(--acento); }
+.interruptor[aria-checked='true'] .interruptor__pista { background: var(--acento); }
+.interruptor[aria-checked='true'] .interruptor__pista::after { transform: translateX(20px); background: var(--acento-texto); }
+
+.pestanas-grupo { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.pestana-grupo { display: flex; align-items: center; gap: 8px; min-height: var(--toque); padding: 4px 14px 4px 6px; background: var(--superficie); border: 2px solid var(--borde); border-radius: 999px; white-space: nowrap; }
+.pestana-grupo[aria-selected='true'] { border-color: var(--color-persona, var(--acento)); background: var(--superficie-2); }
+.pestana-grupo__texto { display: grid; text-align: left; line-height: 1.2; }
+.pestana-grupo__texto strong { font-size: 0.95rem; }
+.pestana-grupo__texto span { font-size: 0.78rem; color: var(--texto-suave); }
+
+.resumen-persona { border-left: 4px solid var(--color-persona, var(--acento)); border-radius: var(--radio-m); }
+.historial__con { color: var(--acento); font-size: 0.85rem; }

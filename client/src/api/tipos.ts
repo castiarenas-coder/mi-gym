@@ -90,8 +90,23 @@ export interface EjercicioSesion {
 
 export interface RecordSesion { ejercicio_id: string; nombre: string; tipo: 'peso' | '1rm'; valor: number; anterior: number | null }
 
+/** Quiénes entrenan juntos y cómo va cada uno. Al terminar trae duración, volumen y récords de cada persona. */
+export interface MiembroGrupo {
+  sesion_id: number
+  persona: { id: number; nombre: string; color: string; avatar: string }
+  estado: 'en_curso' | 'finalizada'
+  duracion: number | null
+  series_hechas: number
+  series_total: number
+  ejercicios: number
+  volumen_kg: number
+  records: RecordSesion[]
+}
+export interface GrupoSesion { id: string; miembros: MiembroGrupo[] }
+
 export interface Sesion {
   id: number
+  persona_id: number
   rutina_id: number | null
   dia_id: number | null
   titulo: string
@@ -102,6 +117,7 @@ export interface Sesion {
   estado: 'en_curso' | 'finalizada'
   ejercicios: EjercicioSesion[]
   resumen: { series_hechas: number; ejercicios: number; volumen_kg: number; records: RecordSesion[] }
+  grupo: GrupoSesion | null
 }
 
 export interface SesionLista {
@@ -115,6 +131,8 @@ export interface SesionLista {
   volumen_kg: number
   ejercicios: number
   nombres: string[]
+  /** Nombres de las otras personas que entrenaron en el mismo grupo. */
+  con: string[]
 }
 
 export interface PaginaSesiones { total: number; limit: number; offset: number; items: SesionLista[] }

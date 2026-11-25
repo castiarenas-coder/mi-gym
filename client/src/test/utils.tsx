@@ -7,16 +7,23 @@ import { App } from '../App'
 
 export type Manejador = (metodo: string, url: URL, body: unknown) => unknown
 
+export const PERSONA_YO = { id: 1, nombre: 'Yo', color: '#c6ff3d', avatar: '', creada: '2026-01-01T00:00:00.000Z' }
+export const PERSONA_ANA = { id: 2, nombre: 'Ana', color: '#ff7a1a', avatar: '🦊', creada: '2026-01-02T00:00:00.000Z' }
+
 /** Reemplaza fetch: el manejador devuelve el JSON, o undefined para responder 404. */
 export function instalarApi(manejador: Manejador) {
-  const llamadas: { metodo: string; ruta: string; body: unknown }[] = []
+  const llamadas: { metodo: string; ruta: string; body: unknown; persona: string | null }[] = []
   const fetchFalso = vi.fn(async (entrada: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(entrada), 'http://localhost')
     const metodo = (init?.method ?? 'GET').toUpperCase()
     let body: unknown = init?.body
     if (typeof body === 'string') { try { body = JSON.parse(body) } catch { /* texto */ } }
-    llamadas.push({ metodo, ruta: url.pathname + url.search, body })
-    const out = manejador(metodo, url, body)
+    const cabeceras = (init?.headers ?? {}) as Record<string, string>
+    llamadas.push({ metodo, ruta: url.pathname + url.search, body, persona: cabeceras['X-Persona'] ?? null })
+    let out = manejador(metodo, url, body)
+    // Por defecto hay una sola persona ("Yo"): así las pantallas no piden elegir quién entrena.
+    if (metodo === 'GET' && url.pathname === '/api/personas' && !Array.isArray(out)) out = [PERSONA_YO]
+    if (out instanceof Response) return out
     if (out === undefined) return new Response(JSON.stringify({ error: 'No existe' }), { status: 404 })
     return new Response(JSON.stringify(out), { status: 200, headers: { 'Content-Type': 'application/json' } })
   })

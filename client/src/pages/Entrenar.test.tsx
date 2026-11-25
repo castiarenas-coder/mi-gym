@@ -10,12 +10,12 @@ const ejSesion = (id: string, nombre: string, series: SerieSesion[], extra: Part
 })
 
 const sesionBase = (extra: Partial<Sesion> = {}): Sesion => ({
-  id: 7, rutina_id: 1, dia_id: 10, titulo: 'Fuerza – Día A', fecha: new Date().toISOString(), fin: null, duracion: null, nota: null, estado: 'en_curso',
+  id: 7, persona_id: 1, rutina_id: 1, dia_id: 10, titulo: 'Fuerza – Día A', fecha: new Date().toISOString(), fin: null, duracion: null, nota: null, estado: 'en_curso',
   ejercicios: [
     ejSesion('Bench', 'Press de banca', [serie(1, 60, 8), serie(2, 60, 8)]),
     ejSesion('Squat', 'Sentadilla', [serie(1, 80, 5)], { orden: 1, descanso_seg: 120 }),
   ],
-  resumen: { series_hechas: 0, ejercicios: 0, volumen_kg: 0, records: [] },
+  resumen: { series_hechas: 0, ejercicios: 0, volumen_kg: 0, records: [] }, grupo: null,
   ...extra,
 })
 

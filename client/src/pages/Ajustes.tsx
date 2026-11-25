@@ -1,5 +1,9 @@
 import { useRef, useState } from 'react'
-import { Download, RotateCcw, Save, Upload } from 'lucide-react'
+import { Download, Pencil, Plus, RotateCcw, Save, Trash2, Upload } from 'lucide-react'
+import { useBorrarPersona, useCrearPersona, useEditarPersona, type Persona } from '../api/personas'
+import { usePersonaActiva } from '../app/PersonaContext'
+import { AvatarPersona } from '../components/AvatarPersona'
+import { FormularioPersona } from '../components/FormularioPersona'
 import { useImportar, useInfo, useRespaldoAhora, useRespaldos, useRestaurar, type Respaldo } from '../api/ajustes'
 import { ConfirmarDialogo } from '../components/ConfirmarDialogo'
 
@@ -9,6 +13,62 @@ function fechaHora(iso: string) {
 
 function tamano(bytes: number) {
   return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`
+}
+
+/** Alta, edición y baja de personas: cada una tiene sus rutinas, entrenamientos, medidas y favoritos. */
+function SeccionPersonas() {
+  const { personas } = usePersonaActiva()
+  const crear = useCrearPersona()
+  const editar = useEditarPersona()
+  const borrar = useBorrarPersona()
+  const [formulario, setFormulario] = useState<'nueva' | Persona | null>(null)
+  const [aBorrar, setABorrar] = useState<Persona | null>(null)
+  const cerrar = () => setFormulario(null)
+
+  return (
+    <section className="tarjeta bloque" aria-labelledby="aj-personas">
+      <h2 id="aj-personas" className="bloque__titulo">Personas</h2>
+      <p className="bloque__ayuda">Cada persona tiene sus propias rutinas, entrenamientos, medidas y favoritos. Cuando entrenan juntos, la sesión cuenta para el progreso de cada una.</p>
+      <ul className="lista-personas">
+        {personas.map(p => (
+          <li key={p.id} className="persona-fila">
+            <AvatarPersona persona={p} />
+            <span className="persona-fila__nombre">{p.nombre}</span>
+            <button type="button" className="icono-boton" aria-label={`Editar ${p.nombre}`} onClick={() => { crear.reset(); editar.reset(); setFormulario(p) }}><Pencil size={18} aria-hidden /></button>
+            <button type="button" className="icono-boton icono-boton--peligro" aria-label={`Borrar ${p.nombre}`} disabled={personas.length <= 1} onClick={() => setABorrar(p)}><Trash2 size={18} aria-hidden /></button>
+          </li>
+        ))}
+      </ul>
+      {personas.length <= 1 && <p className="bloque__ayuda">Tiene que quedar al menos una persona.</p>}
+      <button type="button" className="boton boton--secundario" onClick={() => { crear.reset(); setFormulario('nueva') }}><Plus size={18} aria-hidden /> Agregar persona</button>
+
+      {formulario && (
+        <div className="modal modal--centro" onClick={ev => { if (ev.target === ev.currentTarget) cerrar() }}>
+          <div className="modal__caja" role="dialog" aria-modal="true" aria-label={formulario === 'nueva' ? 'Nueva persona' : 'Editar persona'}>
+            <FormularioPersona
+              persona={formulario === 'nueva' ? undefined : formulario}
+              ocupado={crear.isPending || editar.isPending}
+              error={(formulario === 'nueva' ? crear.error : editar.error)?.message}
+              onCancelar={cerrar}
+              onGuardar={datos => formulario === 'nueva'
+                ? crear.mutate(datos, { onSuccess: cerrar })
+                : editar.mutate({ id: formulario.id, ...datos }, { onSuccess: cerrar })}
+            />
+          </div>
+        </div>
+      )}
+      {aBorrar && (
+        <ConfirmarDialogo
+          titulo={`¿Borrar a ${aBorrar.nombre}?`}
+          mensaje={`Se borran todas las rutinas, entrenamientos, medidas y favoritos de ${aBorrar.nombre}. No se puede deshacer. Antes conviene exportar tus datos (más abajo, en Exportar / importar).`}
+          confirmar="Borrar"
+          ocupado={borrar.isPending}
+          onCancelar={() => setABorrar(null)}
+          onConfirmar={() => borrar.mutate(aBorrar.id, { onSettled: () => setABorrar(null) })}
+        />
+      )}
+    </section>
+  )
 }
 
 export function Ajustes() {
@@ -47,6 +107,8 @@ export function Ajustes() {
       <h1>Ajustes</h1>
       {mensaje && <p className={mensaje.tipo === 'ok' ? 'aviso aviso--ok' : 'aviso aviso--error'} role={mensaje.tipo === 'ok' ? 'status' : 'alert'}>{mensaje.texto}</p>}
 
+      <SeccionPersonas />
+
       <section className="tarjeta bloque" aria-labelledby="aj-datos">
         <h2 id="aj-datos" className="bloque__titulo">Tus datos</h2>
         <p className="bloque__ayuda">Todo se guarda en esta PC, en un solo archivo. No sale a internet.</p>
@@ -78,7 +140,7 @@ export function Ajustes() {
 
       <section className="tarjeta bloque" aria-labelledby="aj-export">
         <h2 id="aj-export" className="bloque__titulo">Exportar / importar</h2>
-        <p className="bloque__ayuda">Un archivo con tus rutinas, entrenamientos, medidas y favoritos. Sirve para llevarlos a otra PC o guardarlos en la nube.</p>
+        <p className="bloque__ayuda">Un archivo con las personas y sus rutinas, entrenamientos, medidas y favoritos. Sirve para llevarlos a otra PC o guardarlos en la nube.</p>
         <div className="acciones">
           <a className="boton boton--secundario" href="/api/respaldo/exportar" download><Download size={18} aria-hidden /> Exportar mis datos</a>
           <button type="button" className="boton boton--secundario" onClick={() => archivoRef.current?.click()}><Upload size={18} aria-hidden /> Importar desde un archivo</button>
@@ -120,7 +182,7 @@ export function Ajustes() {
       {aImportar !== null && (
         <ConfirmarDialogo
           titulo="¿Importar este archivo?"
-          mensaje="Tus rutinas, entrenamientos, medidas y favoritos actuales se reemplazan por los del archivo. Antes guardamos un respaldo de lo que tenés ahora."
+          mensaje="Las personas, rutinas, entrenamientos, medidas y favoritos actuales se reemplazan por los del archivo. Antes guardamos un respaldo de lo que tenés ahora."
           confirmar="Importar"
           ocupado={importar.isPending}
           onConfirmar={() => importar.mutate(aImportar, resultado('Datos importados.'))}

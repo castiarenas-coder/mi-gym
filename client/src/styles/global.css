@@ -2,6 +2,7 @@
 @import './ejercicios.css';
 @import './rutinas.css';
 @import './entrenar.css';
+@import './personas.css';
 
 *, *::before, *::after { box-sizing: border-box; }
 html, body, #root { height: 100%; }

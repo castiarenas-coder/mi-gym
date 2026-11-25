@@ -23,7 +23,7 @@ describe('página Ajustes', () => {
   it('es accesible desde el engranaje de la cabecera', async () => {
     api()
     verApp('/')
-    expect(screen.getByRole('link', { name: 'Ajustes' })).toHaveAttribute('href', '/ajustes')
+    expect(await screen.findByRole('link', { name: 'Ajustes' })).toHaveAttribute('href', '/ajustes')
   })
 
   it('muestra dónde viven los datos y los respaldos', async () => {

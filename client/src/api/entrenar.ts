@@ -42,7 +42,11 @@ function useMutacionSesiones<V, R = unknown>(fn: (v: V) => Promise<R>) {
 }
 
 export const useIniciarSesion = () =>
-  useMutacionSesiones((v: { rutina_id?: number; dia_id?: number }) => enviar<Sesion>('POST', '/sesiones', v))
+  useMutacionSesiones((v: { rutina_id?: number; dia_id?: number; acompanantes?: number[] }) => enviar<Sesion>('POST', '/sesiones', v))
+
+export const useQuitarAcompanante = () =>
+  useMutacionSesiones(({ sesion, persona }: { sesion: number; persona: number }) =>
+    enviar<Sesion | { ok: true }>('DELETE', `/sesiones/${sesion}/acompanantes/${persona}`))
 
 export const useFinalizarSesion = () =>
   useMutacionSesiones(({ id, nota }: { id: number; nota?: string }) => enviar<Sesion>('PATCH', `/sesiones/${id}`, { finalizar: true, ...(nota ? { nota } : {}) }))
@@ -70,18 +74,27 @@ export function useActualizarSerie() {
   return useMutation({
     mutationFn: ({ sesion, ejercicio, n, ...cambios }: CambioSerie) =>
       enviar<SerieSesion>('PATCH', `/sesiones/${sesion}/series/${encodeURIComponent(ejercicio)}/${n}`, cambios),
-    onMutate: async ({ ejercicio, n, sesion: _s, ...cambios }) => {
-      await qc.cancelQueries({ queryKey: CLAVE_ACTIVA })
+    onMutate: async ({ ejercicio, n, sesion, ...cambios }) => {
+      // La sesión puede ser la propia (activa) o la de alguien del grupo (detalle).
+      const claveDetalle = ['sesiones', 'detalle', String(sesion)]
+      await Promise.all([qc.cancelQueries({ queryKey: CLAVE_ACTIVA }), qc.cancelQueries({ queryKey: claveDetalle })])
       const previa = qc.getQueryData<Sesion | null>(CLAVE_ACTIVA)
-      qc.setQueryData<Sesion | null>(CLAVE_ACTIVA, s => s && ({
+      const previaDetalle = qc.getQueryData<Sesion>(claveDetalle)
+      const aplicar = <T extends Sesion | null | undefined>(s: T): T => (s && s.id === sesion ? ({
         ...s,
         ejercicios: s.ejercicios.map(e => e.ejercicio_id !== ejercicio ? e : {
           ...e, series: e.series.map(x => x.n === n ? { ...x, ...cambios } : x),
         }),
-      }))
-      return { previa }
+      }) : s) as T
+      qc.setQueryData<Sesion | null>(CLAVE_ACTIVA, aplicar)
+      if (previaDetalle) qc.setQueryData<Sesion>(claveDetalle, aplicar)
+      return { previa, previaDetalle, claveDetalle }
     },
-    onError: (_e, _v, ctx) => { if (ctx) qc.setQueryData(CLAVE_ACTIVA, ctx.previa) },
+    onError: (_e, _v, ctx) => {
+      if (!ctx) return
+      qc.setQueryData(CLAVE_ACTIVA, ctx.previa)
+      if (ctx.previaDetalle) qc.setQueryData(ctx.claveDetalle, ctx.previaDetalle)
+    },
     onSettled: () => Promise.all([
       qc.invalidateQueries({ queryKey: ['sesiones'] }),
       qc.invalidateQueries({ queryKey: ['progreso'] }),

@@ -1,5 +1,6 @@
 import { Route, Routes } from 'react-router-dom'
 import { Layout } from './app/Layout'
+import { ProveedorPersona } from './app/PersonaContext'
 import { SECCIONES } from './app/rutas'
 import { Ajustes } from './pages/Ajustes'
 import { Ejercicio } from './pages/Ejercicio'
@@ -16,6 +17,7 @@ const PROXIMAS = SECCIONES.filter(s => !['/', '/ejercicios', '/rutinas', '/entre
 
 export function App() {
   return (
+    <ProveedorPersona>
     <Routes>
       <Route element={<Layout />}>
         <Route path="/" element={<Inicio />} />
@@ -34,5 +36,6 @@ export function App() {
         <Route path="*" element={<Proximamente titulo="No encontramos esa página" icono={SECCIONES[0].icono} />} />
       </Route>
     </Routes>
+    </ProveedorPersona>
   )
 }

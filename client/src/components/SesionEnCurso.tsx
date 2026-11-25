@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, Plus, Trash2 } from 'lucide-react'
+import { Check, Plus, Trash2, UserMinus } from 'lucide-react'
 import {
   useActualizarSerie, useAgregarSerie, useBorrarSesion, useFinalizarSesion,
-  useQuitarEjercicioSesion, useQuitarSerie,
+  useQuitarAcompanante, useQuitarEjercicioSesion, useQuitarSerie, useSesion,
 } from '../api/entrenar'
+import { AvatarPersona } from './AvatarPersona'
 import { api } from '../api/cliente'
 import type { EjercicioSesion, SerieSesion, Sesion, UltimaVez } from '../api/tipos'
 import { useDescanso } from '../lib/descanso'
@@ -177,11 +178,21 @@ function TarjetaEjercicioSesion({ sesion, ejercicio, onHecha }: TarjetaProps) {
 
 interface Props { sesion: Sesion; onTerminada: (s: Sesion) => void }
 
-export function SesionEnCurso({ sesion, onTerminada }: Props) {
-  const segundos = useReloj(sesion.fecha)
+/** La pantalla de entrenar: la sesión propia y, si se entrena en grupo, una pestaña por cada persona. */
+export function SesionEnCurso({ sesion: propia, onTerminada }: Props) {
+  const grupo = propia.grupo
+  const [verId, setVerId] = useState(propia.id)
+  const idVisible = grupo?.miembros.some(m => m.sesion_id === verId) ? verId : propia.id
+  const ajena = useSesion(idVisible === propia.id ? undefined : String(idVisible))
+  const sesion = idVisible === propia.id ? propia : ajena.data
+  const miembroVisible = grupo?.miembros.find(m => m.sesion_id === idVisible)
+
+  const segundos = useReloj(propia.fecha)
   const agregar = useAgregarSerie()
   const finalizar = useFinalizarSesion()
   const borrar = useBorrarSesion()
+  const quitarAcompanante = useQuitarAcompanante()
+  const [sacando, setSacando] = useState(false)
   const [buscando, setBuscando] = useState(false)
   const [terminando, setTerminando] = useState(false)
   const [descartando, setDescartando] = useState(false)
@@ -190,7 +201,7 @@ export function SesionEnCurso({ sesion, onTerminada }: Props) {
   const totalDescanso = useRef(0)
   const descanso = useDescanso(avisarFinDescanso)
 
-  const series = sesion.ejercicios.flatMap(e => e.series)
+  const series = sesion?.ejercicios.flatMap(e => e.series) ?? []
   const hechas = series.filter(s => s.hecha).length
   const pendientes = series.length - hechas
 
@@ -207,12 +218,12 @@ export function SesionEnCurso({ sesion, onTerminada }: Props) {
   const agregarEjercicio = async (id: string) => {
     let previa: UltimaVez['series'][number] | undefined
     try { previa = (await api<UltimaVez>(`/ejercicios/${encodeURIComponent(id)}/ultima`)).series[0] } catch { /* sin historial */ }
-    await agregar.mutateAsync({ sesion: sesion.id, ejercicio: id, peso_kg: previa?.peso_kg ?? null, reps: previa?.reps ?? null })
+    await agregar.mutateAsync({ sesion: idVisible, ejercicio: id, peso_kg: previa?.peso_kg ?? null, reps: previa?.reps ?? null })
   }
 
   const terminar = () => {
     setError(null)
-    finalizar.mutate({ id: sesion.id, nota: nota.trim() || undefined }, {
+    finalizar.mutate({ id: propia.id, nota: nota.trim() || undefined }, {
       onSuccess: s => { setTerminando(false); onTerminada(s) },
       onError: e => setError(e.message),
     })
@@ -223,7 +234,7 @@ export function SesionEnCurso({ sesion, onTerminada }: Props) {
       <header className="tarjeta sesion-cab">
         <div>
           <p className="sesion-cab__sup">Entrenando</p>
-          <h1>{sesion.titulo}</h1>
+          <h1>{propia.titulo}</h1>
         </div>
         <div className="sesion-cab__datos">
           <div className="sesion-cab__reloj" role="timer" aria-label="Tiempo de entrenamiento">{reloj(segundos)}</div>
@@ -234,8 +245,34 @@ export function SesionEnCurso({ sesion, onTerminada }: Props) {
         </button>
       </header>
 
-      {sesion.ejercicios.length === 0 && <p className="aviso">Esta sesión está vacía. Agregá un ejercicio para empezar.</p>}
-      {sesion.ejercicios.map(e => <TarjetaEjercicioSesion key={e.ejercicio_id} sesion={sesion.id} ejercicio={e} onHecha={empezarDescanso} />)}
+      {grupo && (
+        <div className="pestanas-grupo" role="tablist" aria-label="Personas del entrenamiento">
+          {grupo.miembros.map(m => (
+            <button
+              key={m.sesion_id}
+              type="button"
+              role="tab"
+              aria-selected={m.sesion_id === idVisible}
+              className="pestana-grupo"
+              style={{ '--color-persona': m.persona.color } as React.CSSProperties}
+              onClick={() => setVerId(m.sesion_id)}
+            >
+              <AvatarPersona persona={m.persona} />
+              <span className="pestana-grupo__texto"><strong>{m.persona.nombre}</strong><span>{m.series_hechas} de {m.series_total} series</span></span>
+            </button>
+          ))}
+        </div>
+      )}
+      {grupo && miembroVisible && miembroVisible.sesion_id !== propia.id && (
+        <button type="button" className="boton boton--texto" onClick={() => setSacando(true)}>
+          <UserMinus size={18} aria-hidden /> Sacar a {miembroVisible.persona.nombre} del entrenamiento
+        </button>
+      )}
+
+      {!sesion && ajena.isError && <p className="aviso aviso--error" role="alert">No pudimos cargar esta sesión.</p>}
+      {!sesion && !ajena.isError && <p className="aviso">Cargando…</p>}
+      {sesion && sesion.ejercicios.length === 0 && <p className="aviso">Esta sesión está vacía. Agregá un ejercicio para empezar.</p>}
+      {sesion?.ejercicios.map(e => <TarjetaEjercicioSesion key={`${sesion.id}-${e.ejercicio_id}`} sesion={sesion.id} ejercicio={e} onHecha={empezarDescanso} />)}
 
       <button type="button" className="boton boton--secundario boton--ancho" onClick={() => setBuscando(true)}>
         <Plus size={20} aria-hidden /> Agregar ejercicio
@@ -265,6 +302,11 @@ export function SesionEnCurso({ sesion, onTerminada }: Props) {
         <div className="modal modal--centro" onClick={ev => { if (ev.target === ev.currentTarget) setTerminando(false) }}>
           <div className="modal__caja" role="dialog" aria-modal="true" aria-labelledby="terminar-titulo">
             <h2 id="terminar-titulo" className="modal__titulo">¿Terminar el entrenamiento?</h2>
+            {grupo && (
+              <p className="bloque__ayuda">
+                Se termina el entrenamiento de todos ({grupo.miembros.map(m => m.persona.nombre).join(', ')}). Las series sin marcar de cada uno no se van a guardar.
+              </p>
+            )}
             <p className="bloque__ayuda">
               {hechas === 0
                 ? 'No marcaste ninguna serie: el entrenamiento quedaría vacío.'
@@ -287,11 +329,27 @@ export function SesionEnCurso({ sesion, onTerminada }: Props) {
       {descartando && (
         <ConfirmarDialogo
           titulo="¿Descartar el entrenamiento?"
-          mensaje="Se borra esta sesión con todo lo que cargaste. No se puede deshacer."
+          mensaje={grupo
+            ? 'Se borra tu sesión con todo lo que cargaste; el resto del grupo sigue entrenando. No se puede deshacer.'
+            : 'Se borra esta sesión con todo lo que cargaste. No se puede deshacer.'}
           confirmar="Descartar"
           ocupado={borrar.isPending}
           onCancelar={() => setDescartando(false)}
-          onConfirmar={() => borrar.mutate(sesion.id, { onSettled: () => setDescartando(false) })}
+          onConfirmar={() => borrar.mutate(propia.id, { onSettled: () => setDescartando(false) })}
+        />
+      )}
+
+      {sacando && miembroVisible && (
+        <ConfirmarDialogo
+          titulo={`¿Sacar a ${miembroVisible.persona.nombre}?`}
+          mensaje={`Se descarta lo que cargó ${miembroVisible.persona.nombre} en este entrenamiento. Vos y el resto siguen. No se puede deshacer.`}
+          confirmar="Sacar"
+          ocupado={quitarAcompanante.isPending}
+          onCancelar={() => setSacando(false)}
+          onConfirmar={() => quitarAcompanante.mutate({ sesion: propia.id, persona: miembroVisible.persona.id }, {
+            onSettled: () => setSacando(false),
+            onSuccess: () => setVerId(propia.id),
+          })}
         />
       )}
     </div>

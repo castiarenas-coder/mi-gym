@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { History, Play, Shuffle } from 'lucide-react'
+import { usePersonaActiva } from '../app/PersonaContext'
+import { AvatarPersona } from '../components/AvatarPersona'
+import { ResumenGrupo } from '../components/ResumenGrupo'
 import { useIniciarSesion, useSesionActiva } from '../api/entrenar'
 import { useRutinas } from '../api/rutinas'
 import type { Sesion } from '../api/tipos'
@@ -9,14 +12,63 @@ import { SesionEnCurso } from '../components/SesionEnCurso'
 
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`
 
+type Inicio = { rutina_id?: number; dia_id?: number }
+
+/** Paso opcional antes de empezar: ¿entrena alguien más? Cada persona suma el entrenamiento a su propio progreso. */
+function ConQuien({ otras, error, ocupado, onEmpezar, onCancelar }: {
+  otras: { id: number; nombre: string; color: string; avatar: string }[]
+  error: string | null
+  ocupado: boolean
+  onEmpezar: (acompanantes: number[]) => void
+  onCancelar: () => void
+}) {
+  const [elegidas, setElegidas] = useState<number[]>([])
+  const alternar = (id: number) => setElegidas(e => (e.includes(id) ? e.filter(x => x !== id) : [...e, id]))
+  return (
+    <div className="modal modal--centro" onClick={ev => { if (ev.target === ev.currentTarget) onCancelar() }}>
+      <div className="modal__caja" role="dialog" aria-modal="true" aria-label="¿Entrena alguien más?">
+        <h2 className="modal__titulo">¿Entrena alguien más?</h2>
+        <p className="bloque__ayuda">Si entrenan juntos, la sesión también cuenta para el progreso de cada uno, con sus propios pesos.</p>
+        <ul className="con-quien">
+          {otras.map(p => (
+            <li key={p.id}>
+              <button type="button" role="switch" aria-checked={elegidas.includes(p.id)} aria-label={p.nombre} className="interruptor" onClick={() => alternar(p.id)}>
+                <AvatarPersona persona={p} />
+                <span className="interruptor__nombre">{p.nombre}</span>
+                <span className="interruptor__pista" aria-hidden />
+              </button>
+            </li>
+          ))}
+        </ul>
+        {error && <p className="aviso aviso--error" role="alert">{error}</p>}
+        <div className="acciones acciones--fin">
+          <button type="button" className="boton boton--secundario" onClick={onCancelar}>Cancelar</button>
+          <button type="button" className="boton boton--principal" disabled={ocupado} onClick={() => onEmpezar(elegidas)}>Empezar</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function Elegir() {
   const rutinas = useRutinas()
   const iniciar = useIniciarSesion()
+  const { persona, personas } = usePersonaActiva()
+  const otras = personas.filter(p => p.id !== persona.id)
   const [error, setError] = useState<string | null>(null)
+  const [pendiente, setPendiente] = useState<Inicio | null>(null)
 
-  const empezar = (cuerpo: { rutina_id?: number; dia_id?: number }) => {
+  const lanzar = (cuerpo: Inicio, acompanantes: number[] = []) => {
     setError(null)
-    iniciar.mutate(cuerpo, { onError: e => setError(e.message) })
+    iniciar.mutate(acompanantes.length ? { ...cuerpo, acompanantes } : cuerpo, {
+      onSuccess: () => setPendiente(null),
+      onError: e => setError(e.message),
+    })
+  }
+  // Con más personas en la casa se pregunta con quién; si no, se empieza directo.
+  const empezar = (cuerpo: Inicio) => {
+    if (otras.length === 0) lanzar(cuerpo)
+    else { setError(null); setPendiente(cuerpo) }
   }
 
   return (
@@ -26,7 +78,7 @@ function Elegir() {
         <Link to="/historial" className="boton boton--secundario"><History size={20} aria-hidden /> Historial</Link>
       </div>
       <p className="bloque__ayuda">Elegí el día que te toca o armá una sesión libre. Tu entrenamiento queda guardado aunque cierres la página.</p>
-      {error && <p className="aviso aviso--error" role="alert">{error}</p>}
+      {error && !pendiente && <p className="aviso aviso--error" role="alert">{error}</p>}
 
       <button type="button" className="boton boton--principal boton--grande" disabled={iniciar.isPending} onClick={() => empezar({})}>
         <Shuffle size={22} aria-hidden /> Empezar sesión libre
@@ -58,6 +110,10 @@ function Elegir() {
           </div>
         </section>
       ))}
+
+      {pendiente && (
+        <ConQuien otras={otras} error={error} ocupado={iniciar.isPending} onEmpezar={a => lanzar(pendiente, a)} onCancelar={() => setPendiente(null)} />
+      )}
     </div>
   )
 }
@@ -70,7 +126,14 @@ export function Entrenar() {
     return (
       <div className="pagina">
         <h1>Entrenar</h1>
-        <ResumenSesion sesion={terminada} titulo="¡Entrenamiento terminado!" />
+        {terminada.grupo ? (
+          <>
+            <h2 className="resumen-sesion__titulo">¡Entrenamiento en grupo terminado!</h2>
+            <ResumenGrupo sesion={terminada} />
+          </>
+        ) : (
+          <ResumenSesion sesion={terminada} titulo="¡Entrenamiento terminado!" />
+        )}
         <div className="acciones">
           <Link to={`/historial/${terminada.id}`} className="boton boton--secundario">Ver detalle</Link>
           <button type="button" className="boton boton--principal" onClick={() => setTerminada(null)}>Listo</button>
