@@ -76,6 +76,11 @@
 .serie--hecha .serie__check { background: var(--acento); border-color: var(--acento); color: var(--acento-texto); }
 .serie__quitar { width: var(--toque); height: var(--toque); background: none; border-color: transparent; color: var(--texto-suave); }
 .serie__quitar:hover { color: var(--peligro); }
+@media (max-width: 359px) {
+  .serie { grid-template-columns: 32px minmax(0, 1fr) minmax(0, 1fr) var(--toque) var(--toque); gap: 4px; }
+  .serie__check { width: var(--toque); height: var(--toque); }
+  .serie__campo { font-size: 1.15rem; }
+}
 
 /* ---- Descanso ---- */
 .descanso { position: fixed; z-index: 30; left: 8px; right: 8px; bottom: calc(var(--alto-nav) + 8px + env(safe-area-inset-bottom)); max-width: 640px; margin: 0 auto; overflow: hidden; background: var(--superficie-2); border: 2px solid var(--acento); border-radius: var(--radio-l); box-shadow: var(--sombra); }
