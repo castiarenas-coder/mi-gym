@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ChevronRight, Trash2 } from 'lucide-react'
+import { ChevronRight, Dumbbell, Trash2 } from 'lucide-react'
 import { useBorrarSesion, useSesion, useSesiones } from '../api/entrenar'
+import { CabeceraPagina } from '../components/ui/CabeceraPagina'
+import { EstadoVacio } from '../components/ui/EstadoVacio'
 import { ConfirmarDialogo } from '../components/ConfirmarDialogo'
 import { ResumenSesion } from '../components/ResumenSesion'
 import { duracionLarga, fechaConDia, fechaLarga, hora, kg, miles } from '../lib/formato'
@@ -14,14 +16,16 @@ export function Historial() {
 
   return (
     <div className="pagina">
-      <h1>Historial</h1>
+      <CabeceraPagina titulo="Historial" />
       {lista.isPending && <p className="aviso">Cargando entrenamientos…</p>}
       {lista.isError && <p className="aviso aviso--error" role="alert">No pudimos cargar tu historial.</p>}
       {lista.isSuccess && lista.data.items.length === 0 && (
-        <div className="tarjeta vacio">
-          <p>Todavía no registraste entrenamientos.</p>
-          <Link to="/entrenar" className="boton boton--principal">Ir a entrenar</Link>
-        </div>
+        <EstadoVacio
+          icono={Dumbbell}
+          titulo="Todavía no registraste entrenamientos."
+          texto="Cuando termines uno, queda guardado acá con su duración, series y volumen."
+          accion={{ texto: 'Ir a entrenar', a: '/entrenar' }}
+        />
       )}
       <ul className="historial">
         {lista.data?.items.map(s => (
@@ -68,8 +72,8 @@ export function HistorialDetalle() {
     <div className="pagina">
       <Link to="/historial" className="volver">Volver al historial</Link>
       <div>
-        <h1>{s.titulo}</h1>
-        <p className="bloque__ayuda">{fechaLarga(s.fecha)} · {hora(s.fecha)}</p>
+        <CabeceraPagina titulo={s.titulo} />
+        <p className="bloque__ayuda historial__cuando">{fechaLarga(s.fecha)} · {hora(s.fecha)}</p>
       </div>
       <ResumenSesion sesion={s} />
 

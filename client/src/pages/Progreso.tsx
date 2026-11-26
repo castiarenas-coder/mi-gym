@@ -1,5 +1,6 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { History } from 'lucide-react'
+import { CabeceraPagina } from '../components/ui/CabeceraPagina'
 import { TabCalculadora } from './progreso/TabCalculadora'
 import { TabEjercicios } from './progreso/TabEjercicios'
 import { TabMedidas } from './progreso/TabMedidas'
@@ -28,10 +29,10 @@ export function Progreso() {
 
   return (
     <div className="pagina">
-      <div className="cabecera-pagina">
-        <h1>Progreso</h1>
-        <Link to="/historial" className="boton boton--secundario"><History size={20} aria-hidden /> Ver historial</Link>
-      </div>
+      <CabeceraPagina
+        titulo="Progreso"
+        accion={<Link to="/historial" className="boton boton--secundario"><History size={20} aria-hidden /> Ver historial</Link>}
+      />
 
       <div className="chips tabs" role="tablist" aria-label="Secciones de progreso">
         {TABS.map((t, i) => (

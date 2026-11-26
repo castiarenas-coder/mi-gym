@@ -106,3 +106,17 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }
+
+/* ---- Progreso, historial, ajustes y personas ---- */
+.estadisticas--grandes .estadistica { padding: var(--espacio); gap: 6px; border-radius: var(--radio-m); }
+.estadisticas--grandes .estadistica dt { font-size: var(--t-chico); }
+.estadisticas--grandes .estadistica dd {
+  font-family: var(--fuente-titulo); font-stretch: 75%; font-weight: 800;
+  font-size: var(--t-titulo); line-height: 1.05; color: var(--texto);
+}
+.estadisticas--grandes .estadistica--racha dd svg { color: var(--record); flex: none; }
+.historial__item { min-height: var(--toque); border-radius: var(--radio-m); }
+.historial__fecha { font-family: var(--fuente-titulo); font-stretch: 75%; }
+.historial__cuando { margin: 0; }
+.elegir-persona__titulo { font-family: var(--fuente-titulo); font-stretch: 75%; font-weight: 800; font-size: var(--t-titulo); }
+.grafico__tooltip strong { font-family: var(--fuente-titulo); font-stretch: 75%; }

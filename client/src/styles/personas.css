@@ -1,5 +1,5 @@
 /* ---- Personas: avatares, pantalla "¿Quién entrena?" y pestañas del entrenamiento en grupo ---- */
-.avatar { display: inline-grid; place-items: center; border-radius: 50%; color: #0b0d10; font-weight: 800; line-height: 1; flex: none; user-select: none; }
+.avatar { display: inline-grid; place-items: center; border-radius: 50%; color: var(--sobre-color); font-weight: 800; line-height: 1; flex: none; user-select: none; }
 .avatar--chico { width: 24px; height: 24px; font-size: 0.8rem; }
 .avatar--medio { width: 40px; height: 40px; font-size: 1.25rem; }
 .avatar--grande { width: 84px; height: 84px; font-size: 2.6rem; }

@@ -37,6 +37,7 @@
 :root {
   --acento-2: var(--record); /* alias: el naranja ahora se llama --record */
 
+  --sobre-color: #0a0c10; /* texto sobre los colores fijos de las personas, igual en ambos temas */
   --radio-s: 10px;
   --radio-m: 16px;
   --radio-l: 24px;

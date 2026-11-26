@@ -6,6 +6,7 @@ import { usePersonaActiva } from '../app/PersonaContext'
 import { AvatarPersona } from '../components/AvatarPersona'
 import { FormularioPersona } from '../components/FormularioPersona'
 import { useActualizacion, useApagar, useImportar, useInfo, useRespaldoAhora, useRespaldos, useRestaurar, type Respaldo } from '../api/ajustes'
+import { CabeceraPagina } from '../components/ui/CabeceraPagina'
 import { ConfirmarDialogo } from '../components/ConfirmarDialogo'
 
 function fechaHora(iso: string) {
@@ -182,7 +183,7 @@ export function Ajustes() {
   const enAndroid = i?.plataforma === 'android'
   return (
     <div className="pagina">
-      <h1>Ajustes</h1>
+      <CabeceraPagina titulo="Ajustes" />
       {mensaje && <p className={mensaje.tipo === 'ok' ? 'aviso aviso--ok' : 'aviso aviso--error'} role={mensaje.tipo === 'ok' ? 'status' : 'alert'}>{mensaje.texto}</p>}
 
       <SeccionApariencia />

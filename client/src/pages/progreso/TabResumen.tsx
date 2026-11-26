@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Flame, Trophy } from 'lucide-react'
+import { EstadoVacio } from '../../components/ui/EstadoVacio'
 import { useResumenProgreso } from '../../api/progreso'
 import { GraficoBarras } from '../../components/GraficoBarras'
 import { duracionLarga, fechaCorta, kg, miles } from '../../lib/formato'
@@ -14,11 +15,12 @@ export function TabResumen() {
 
   if (r.total_sesiones === 0) {
     return (
-      <div className="tarjeta vacio">
-        <Trophy size={36} aria-hidden />
-        <p>Todavía no registraste entrenamientos. Cuando termines el primero vas a ver acá tus semanas, tu racha y tu volumen.</p>
-        <Link to="/entrenar" className="boton boton--principal">Ir a entrenar</Link>
-      </div>
+      <EstadoVacio
+        icono={Trophy}
+        titulo="Todavía no registraste entrenamientos."
+        texto="Cuando termines el primero vas a ver acá tus semanas, tu racha y tu volumen."
+        accion={{ texto: 'Ir a entrenar', a: '/entrenar' }}
+      />
     )
   }
 
@@ -26,14 +28,14 @@ export function TabResumen() {
     <>
       <section aria-label="Tu semana">
         <dl className="estadisticas estadisticas--grandes">
-          <div className="estadistica"><dt>Entrenamientos esta semana</dt><dd>{r.esta_semana.sesiones}</dd></div>
+          <div className="estadistica"><dt>Entrenamientos esta semana</dt><dd className="numero">{r.esta_semana.sesiones}</dd></div>
           <div className="estadistica estadistica--racha">
             <dt>Racha</dt>
-            <dd><Flame size={20} aria-hidden /> {plural(r.racha.actual, 'semana', 'semanas')}</dd>
+            <dd className="numero"><Flame size={22} aria-hidden /> {plural(r.racha.actual, 'semana', 'semanas')}</dd>
             <span className="estadistica__nota">Mejor racha: {plural(r.racha.mejor, 'semana', 'semanas')}</span>
           </div>
-          <div className="estadistica"><dt>Volumen esta semana</dt><dd>{miles(r.esta_semana.volumen_kg)} kg</dd></div>
-          <div className="estadistica"><dt>Total de entrenamientos</dt><dd>{r.total_sesiones}</dd></div>
+          <div className="estadistica"><dt>Volumen esta semana</dt><dd className="numero">{miles(r.esta_semana.volumen_kg)} kg</dd></div>
+          <div className="estadistica"><dt>Total de entrenamientos</dt><dd className="numero">{r.total_sesiones}</dd></div>
         </dl>
       </section>
 
