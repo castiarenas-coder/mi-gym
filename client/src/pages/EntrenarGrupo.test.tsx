@@ -32,7 +32,7 @@ function api(inicial: Sesion | null = null) {
     if (p === '/api/rutinas') return RUTINAS
     if (p === '/api/sesiones' && metodo === 'POST') { activa = sesionDe(7, 1, 60); return activa }
     if (p === '/api/sesiones/8' && metodo === 'GET') return detalles[8]
-    if (p === '/api/sesiones/8/series/Bench/1' && metodo === 'PATCH') { Object.assign(detalles[8].ejercicios[0].series[0], body); if (body.hecha && activa) activa.ejercicios[0].series[0].hecha = true; return detalles[8].ejercicios[0].series[0] }
+    if (p === '/api/sesiones/8/series/Bench/1' && metodo === 'PATCH') { Object.assign(detalles[8].ejercicios[0].series[0], body); if ((body as { hecha?: boolean }).hecha && activa) activa.ejercicios[0].series[0].hecha = true; return detalles[8].ejercicios[0].series[0] }
     if (p === '/api/sesiones/7/acompanantes/2' && metodo === 'DELETE') { activa = { ...sesionDe(7, 1, 60), grupo: null }; return activa }
     if (p === '/api/sesiones/7' && metodo === 'PATCH') {
       const fin = (id: number, persona: typeof PERSONA_YO, vol: number, rec: boolean) => ({
