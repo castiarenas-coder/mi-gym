@@ -13,6 +13,23 @@ const contraste = (a: string, b: string) => {
 describe('apariencia', () => {
   beforeEach(() => localStorage.clear())
 
+  it('si el almacenamiento tira error (datos del sitio bloqueados) usa el defecto y no rompe', () => {
+    const roto = { getItem() { throw new Error('SecurityError') }, setItem() { throw new Error('SecurityError') } } as unknown as Storage
+    expect(leerApariencia(roto)).toEqual(APARIENCIA_DEFECTO)
+    expect(() => guardarApariencia({ tema: 'claro', acento: 'cian' }, roto)).not.toThrow()
+  })
+
+  it('si acceder a localStorage tira error, los valores por defecto del parámetro tampoco rompen', () => {
+    const desc = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')!
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, get() { throw new Error('SecurityError') } })
+    try {
+      expect(leerApariencia()).toEqual(APARIENCIA_DEFECTO)
+      expect(() => guardarApariencia({ tema: 'claro', acento: 'cian' })).not.toThrow()
+    } finally {
+      Object.defineProperty(globalThis, 'localStorage', desc)
+    }
+  })
+
   it('sin dato devuelve el defecto', () => {
     expect(leerApariencia()).toEqual({ tema: 'oscuro', acento: 'lima' })
     expect(APARIENCIA_DEFECTO).toEqual({ tema: 'oscuro', acento: 'lima' })

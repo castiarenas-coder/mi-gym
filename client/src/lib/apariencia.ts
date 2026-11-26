@@ -16,9 +16,9 @@ export const APARIENCIA_DEFECTO: Apariencia = { tema: 'oscuro', acento: 'lima' }
 const CLAVE = 'mi-gym:apariencia'
 const TEMAS: Tema[] = ['sistema', 'oscuro', 'claro']
 
-export function leerApariencia(almacen: Storage = localStorage): Apariencia {
+export function leerApariencia(almacen?: Storage): Apariencia {
   try {
-    const dato = JSON.parse(almacen.getItem(CLAVE) ?? 'null')
+    const dato = JSON.parse((almacen ?? localStorage).getItem(CLAVE) ?? 'null')
     return {
       tema: TEMAS.includes(dato?.tema) ? dato.tema : APARIENCIA_DEFECTO.tema,
       acento: ACENTOS.some(a => a.id === dato?.acento) ? dato.acento : APARIENCIA_DEFECTO.acento,
@@ -28,8 +28,8 @@ export function leerApariencia(almacen: Storage = localStorage): Apariencia {
   }
 }
 
-export function guardarApariencia(a: Apariencia, almacen: Storage = localStorage): void {
-  try { almacen.setItem(CLAVE, JSON.stringify(a)) } catch { /* sin almacenamiento: se aplica solo en esta sesión */ }
+export function guardarApariencia(a: Apariencia, almacen?: Storage): void {
+  try { (almacen ?? localStorage).setItem(CLAVE, JSON.stringify(a)) } catch { /* sin almacenamiento: se aplica solo en esta sesión */ }
 }
 
 export function temaEfectivo(tema: Tema, prefiereOscuro: boolean | null): 'oscuro' | 'claro' {

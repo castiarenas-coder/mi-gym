@@ -9,12 +9,17 @@ import { App } from './App'
 import { aplicarApariencia, leerApariencia } from './lib/apariencia'
 
 aplicarApariencia(leerApariencia())
-if (typeof matchMedia === 'function') {
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-    const a = leerApariencia()
-    if (a.tema === 'sistema') aplicarApariencia(a)
-  })
-}
+try {
+  if (typeof matchMedia === 'function') {
+    const mq = matchMedia('(prefers-color-scheme: dark)')
+    const alCambiar = () => {
+      const a = leerApariencia()
+      if (a.tema === 'sistema') aplicarApariencia(a)
+    }
+    if (typeof mq.addEventListener === 'function') mq.addEventListener('change', alCambiar)
+    else if (typeof mq.addListener === 'function') mq.addListener(alCambiar)
+  }
+} catch { /* sin matchMedia: el tema "sistema" se resuelve solo al abrir */ }
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 60_000, retry: 1 } } })
 
