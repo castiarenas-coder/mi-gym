@@ -19,7 +19,8 @@ export function Inicio() {
   const rutinas = useRutinas()
 
   const nombre = persona.nombre.trim()
-  const hoy = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
+  const fecha = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
+  const hoy = fecha.charAt(0).toUpperCase() + fecha.slice(1)
   const activa = resumen?.sesion_activa ?? null
   const ultima = resumen?.ultima_sesion ?? null
 
@@ -47,7 +48,7 @@ export function Inicio() {
               <ul className="inicio__rutinas" aria-label="Tus rutinas">
                 {rutinas.data.map(r => (
                   <li key={r.id}>
-                    <Link to={`/rutinas/${r.id}`} className="boton boton--secundario inicio__rutina">
+                    <Link to="/entrenar" className="boton boton--secundario inicio__rutina">
                       <ClipboardList size={18} aria-hidden /> <span>{r.nombre}</span>
                     </Link>
                   </li>

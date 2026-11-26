@@ -42,8 +42,10 @@ describe('página Inicio', () => {
     api()
     verApp('/')
     expect(await screen.findByRole('heading', { level: 1, name: 'Hola, Yo' })).toBeInTheDocument()
-    const hoy = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
+    const crudo = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
+    const hoy = crudo.charAt(0).toUpperCase() + crudo.slice(1)
     expect(screen.getByText(hoy)).toBeInTheDocument()
+    expect(hoy).not.toMatch(/ De /)
   })
 
   it('con nombre vacío saluda solo con "Hola"', async () => {
@@ -68,7 +70,7 @@ describe('página Inicio', () => {
     const region = await screen.findByRole('region', { name: 'Tu entrenamiento' })
     expect(await within(region).findByRole('link', { name: /Empezar/ })).toHaveAttribute('href', '/entrenar')
     expect(within(region).queryByRole('link', { name: /Continuar/ })).toBeNull()
-    expect(await within(region).findByRole('link', { name: /Empuje y tirón/ })).toHaveAttribute('href', '/rutinas/4')
+    expect(await within(region).findByRole('link', { name: /Empuje y tirón/ })).toHaveAttribute('href', '/entrenar')
   })
 
   it('sin rutinas invita a crear la primera', async () => {
