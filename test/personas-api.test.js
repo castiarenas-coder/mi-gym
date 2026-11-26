@@ -141,7 +141,8 @@ test('entrenar en grupo: una sesión por persona, mismo plan, y cada una con sus
   await api(1, `/api/sesiones/${suya.sesion_id}/series/Barbell_Squat/1`, { method: 'PATCH', body: { peso_kg: 40, reps: 10, hecha: true } });
   await api(1, `/api/sesiones/${suya.sesion_id}/series/Barbell_Squat/2`, { method: 'PATCH', body: { peso_kg: 40, reps: 10, hecha: true } });
   const parcial = (await api(1, '/api/sesiones/activa')).json.grupo.miembros;
-  assert.equal(parcial.find(m => m.persona.id === 1).series_hechas, 1);
+  // Marcar la serie 2 de Ana la marcó también en la mía (sin tocar mis datos).
+  assert.equal(parcial.find(m => m.persona.id === 1).series_hechas, 2);
   assert.equal(parcial.find(m => m.persona.id === ana).series_hechas, 2);
 
   // Terminar desde cualquiera finaliza a todos, cada uno con su duración, volumen y récords.
@@ -151,7 +152,7 @@ test('entrenar en grupo: una sesión por persona, mismo plan, y cada una con sus
   assert.equal(fin.json.estado, 'finalizada');
   const fm = fin.json.grupo.miembros;
   assert.deepEqual(fm.map(m => m.estado), ['finalizada', 'finalizada']);
-  assert.equal(fm.find(m => m.persona.id === 1).volumen_kg, 840);
+  assert.equal(fm.find(m => m.persona.id === 1).volumen_kg, 1640);
   assert.equal(fm.find(m => m.persona.id === ana).volumen_kg, 800);
   assert.equal(fm.find(m => m.persona.id === ana).duracion, 3600);
   assert.ok(fm.find(m => m.persona.id === 1).records.some(x => x.tipo === 'peso' && x.valor === 105));
@@ -163,7 +164,7 @@ test('entrenar en grupo: una sesión por persona, mismo plan, y cada una con sus
   const ra = (await api(ana, '/api/progreso/resumen')).json;
   assert.equal(rm.total_sesiones, 2);
   assert.equal(ra.total_sesiones, 1);
-  assert.equal(rm.volumen_total_kg, 800 + 840);
+  assert.equal(rm.volumen_total_kg, 800 + 1640);
   assert.equal(ra.volumen_total_kg, 800);
   assert.equal(ra.records[0].ejercicio_id, 'Barbell_Squat');
   // Última vez y récords son de cada uno.
@@ -217,6 +218,66 @@ test('después de terminar un grupo, solo cada dueño modifica su sesión', asyn
   assert.equal((await api(ana, `/api/sesiones/${deAna}`, { method: 'PATCH', body: { nota: 'ok' } })).status, 200);
   await api(1, `/api/sesiones/${r.id}`, { method: 'DELETE' });
   await api(ana, `/api/sesiones/${deAna}`, { method: 'DELETE' });
+});
+
+test('en grupo, marcar una serie como hecha la marca también en los demás que siguen en curso', async () => {
+  const ana = await anaId();
+  const diaId = await rutinaConDia(1);
+  const r = (await api(1, '/api/sesiones', { method: 'POST', body: { dia_id: diaId, acompanantes: [ana] } })).json;
+  const mio = r.id;
+  const suya = r.grupo.miembros.find(m => m.persona.id === ana).sesion_id;
+  const serie = async (sesion, ej, n) => (await api(1, `/api/sesiones/${sesion}`)).json.ejercicios.find(e => e.ejercicio_id === ej).series.find(x => x.n === n);
+  const url = (sesion, ej, n) => `/api/sesiones/${sesion}/series/${ej}/${n}`;
+
+  // Ana ya cargó lo suyo (sin marcar).
+  await api(ana, url(suya, 'Barbell_Squat', 1), { method: 'PATCH', body: { peso_kg: 40, reps: 10 } });
+  // (1) Marcar en la mía la marca en la de Ana, sin tocar su peso ni reps.
+  const resp = await api(1, url(mio, 'Barbell_Squat', 1), { method: 'PATCH', body: { peso_kg: 100, reps: 8, hecha: true } });
+  assert.equal(resp.status, 200);
+  assert.deepEqual(Object.keys(resp.json).sort(), ['hecha', 'n', 'peso_kg', 'reps', 'rpe']);
+  const deAna = await serie(suya, 'Barbell_Squat', 1);
+  assert.deepEqual([deAna.hecha, deAna.peso_kg, deAna.reps], [true, 40, 10]);
+  assert.equal((await serie(suya, 'Barbell_Squat', 2)).hecha, false, 'solo esa serie');
+  assert.equal((await serie(suya, 'Pushups', 1)).hecha, false, 'solo ese ejercicio');
+
+  // (2) Desmarcar en la mía no desmarca la de Ana.
+  await api(1, url(mio, 'Barbell_Squat', 1), { method: 'PATCH', body: { hecha: false } });
+  assert.equal((await serie(mio, 'Barbell_Squat', 1)).hecha, false);
+  assert.equal((await serie(suya, 'Barbell_Squat', 1)).hecha, true);
+
+  // (3) Una serie que Ana no tiene se salta sin error (y no se crea).
+  assert.equal((await api(1, `/api/sesiones/${mio}/series`, { method: 'POST', body: { ejercicio_id: 'Barbell_Squat', n: 3 } })).status, 201);
+  assert.equal((await api(1, url(mio, 'Barbell_Squat', 3), { method: 'PATCH', body: { hecha: true } })).status, 200);
+  assert.equal(await serie(suya, 'Barbell_Squat', 3), undefined);
+
+  // También al revés: Ana marca y se marca la mía.
+  await api(ana, url(suya, 'Pushups', 2), { method: 'PATCH', body: { hecha: true } });
+  assert.equal((await serie(mio, 'Pushups', 2)).hecha, true);
+
+  await api(1, `/api/sesiones/${r.id}`, { method: 'DELETE' });
+  await api(ana, `/api/sesiones/${suya}`, { method: 'DELETE' });
+});
+
+test('en grupo, la marca no pasa a una sesión finalizada ni a una sesión que no es de grupo', async () => {
+  const ana = await anaId();
+  const url = (sesion, ej, n) => `/api/sesiones/${sesion}/series/${ej}/${n}`;
+  const diaId = await rutinaConDia(1, ['Pushups']);
+  // Sesión suelta (no grupo): se comporta como siempre.
+  const sola = (await api(1, '/api/sesiones', { method: 'POST', body: { dia_id: diaId } })).json;
+  const ps = await api(1, url(sola.id, 'Pushups', 1), { method: 'PATCH', body: { hecha: true } });
+  assert.equal(ps.status, 200);
+  assert.equal(ps.json.hecha, true);
+  await api(1, `/api/sesiones/${sola.id}`, { method: 'DELETE' });
+
+  // Grupo donde la sesión de Ana ya está finalizada: no se la toca.
+  const g = (await api(1, '/api/sesiones', { method: 'POST', body: { dia_id: diaId, acompanantes: [ana] } })).json;
+  const deAna = g.grupo.miembros.find(m => m.persona.id === ana).sesion_id;
+  // Se fuerza el estado directo en la base: la API termina a todo el grupo junto.
+  s.db.prepare("UPDATE sesiones SET estado = 'finalizada' WHERE id = ?").run(deAna);
+  await api(1, url(g.id, 'Pushups', 1), { method: 'PATCH', body: { hecha: true } });
+  assert.equal(s.db.prepare('SELECT hecha FROM series_hechas WHERE sesion_id = ? AND ejercicio_id = ? AND n = 1').get(deAna, 'Pushups').hecha, 0);
+  await api(1, `/api/sesiones/${g.id}`, { method: 'DELETE' });
+  s.db.prepare('DELETE FROM sesiones WHERE id = ?').run(deAna);
 });
 
 test('borrar personas: no la última, y sus datos se van con ella', async () => {

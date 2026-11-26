@@ -372,8 +372,19 @@ export function sesionesRouter(db, { ahora = () => new Date() } = {}) {
     if (error) return falla(res, 400, error);
     const campos = Object.keys(datos);
     if (!campos.length) return falla(res, 400, 'No hay nada para actualizar');
-    db.prepare(`UPDATE series_hechas SET ${campos.map(c => `${c} = ?`).join(', ')} WHERE sesion_id = ? AND ejercicio_id = ? AND n = ?`)
-      .run(...campos.map(c => datos[c]), req.params.id, req.params.ejercicioId, n);
+    transaccion(() => {
+      db.prepare(`UPDATE series_hechas SET ${campos.map(c => `${c} = ?`).join(', ')} WHERE sesion_id = ? AND ejercicio_id = ? AND n = ?`)
+        .run(...campos.map(c => datos[c]), req.params.id, req.params.ejercicioId, n);
+      // En grupo, marcar una serie como hecha la marca también para los demás que siguen entrenando
+      // (solo la marca: el peso, las reps y el RPE de cada uno quedan como están). Desmarcar no se replica.
+      if (datos.hecha === 1 && !actual.hecha) {
+        const s = db.prepare('SELECT grupo FROM sesiones WHERE id = ?').get(req.params.id);
+        if (s?.grupo) {
+          db.prepare(`UPDATE series_hechas SET hecha = 1 WHERE ejercicio_id = ? AND n = ? AND hecha = 0 AND sesion_id IN (
+            SELECT id FROM sesiones WHERE grupo = ? AND estado = 'en_curso' AND id != ?)`).run(req.params.ejercicioId, n, s.grupo, req.params.id);
+        }
+      }
+    });
     res.json(formatearSerie(leerSerie(req.params.id, req.params.ejercicioId, n)));
   });
 

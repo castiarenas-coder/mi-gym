@@ -32,7 +32,7 @@ function api(inicial: Sesion | null = null) {
     if (p === '/api/rutinas') return RUTINAS
     if (p === '/api/sesiones' && metodo === 'POST') { activa = sesionDe(7, 1, 60); return activa }
     if (p === '/api/sesiones/8' && metodo === 'GET') return detalles[8]
-    if (p === '/api/sesiones/8/series/Bench/1' && metodo === 'PATCH') { Object.assign(detalles[8].ejercicios[0].series[0], body); return detalles[8].ejercicios[0].series[0] }
+    if (p === '/api/sesiones/8/series/Bench/1' && metodo === 'PATCH') { Object.assign(detalles[8].ejercicios[0].series[0], body); if (body.hecha && activa) activa.ejercicios[0].series[0].hecha = true; return detalles[8].ejercicios[0].series[0] }
     if (p === '/api/sesiones/7/acompanantes/2' && metodo === 'DELETE') { activa = { ...sesionDe(7, 1, 60), grupo: null }; return activa }
     if (p === '/api/sesiones/7' && metodo === 'PATCH') {
       const fin = (id: number, persona: typeof PERSONA_YO, vol: number, rec: boolean) => ({
@@ -91,6 +91,19 @@ describe('Entrenar en grupo', () => {
     expect(llamadas.find(l => l.ruta === '/api/sesiones/8/series/Bench/1')?.body).toMatchObject({ hecha: true, peso_kg: 40, reps: 8 })
     // El descanso es uno solo para todos.
     expect(await screen.findByRole('region', { name: 'Descanso' })).toBeInTheDocument()
+  })
+
+  it('al marcar una serie en una pestaña, la misma serie aparece marcada en la pestaña de los demás', async () => {
+    api(sesionDe(7, 1, 60))
+    verApp('/entrenar')
+    const pestanas = within(await screen.findByRole('tablist', { name: 'Personas del entrenamiento' }))
+    await userEvent.click(pestanas.getByRole('tab', { name: /Ana/ }))
+    await waitFor(() => expect((screen.getByLabelText('Peso (kg) serie 1') as HTMLInputElement).value).toBe('40'))
+    await userEvent.click(screen.getByRole('button', { name: 'Marcar serie 1 como hecha' }))
+    // El servidor la marca también en la sesión de Yo: al volver a su pestaña ya se ve hecha.
+    await userEvent.click(pestanas.getByRole('tab', { name: /Yo/ }))
+    expect(await screen.findByRole('button', { name: 'Serie 1 hecha, tocá para desmarcar' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Marcar serie 2 como hecha' })).toBeInTheDocument()
   })
 
   it('terminar cierra a todos y muestra el resumen de cada persona', async () => {
