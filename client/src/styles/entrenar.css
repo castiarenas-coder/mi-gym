@@ -117,7 +117,7 @@
 .inicio { gap: 16px; }
 .inicio__saludo { display: grid; gap: 2px; min-width: 0; }
 .inicio__titulo { margin: 0; font-size: clamp(1.5rem, 5vw, 2rem); overflow-wrap: anywhere; }
-.inicio__fecha { margin: 0; color: var(--texto-suave); text-transform: capitalize; }
+.inicio__fecha { margin: 0; color: var(--texto-suave); }
 .inicio__hoy, .inicio__ultimo { display: grid; gap: 12px; }
 .inicio__sup { margin: 0; color: var(--texto-suave); font-family: var(--fuente-texto); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.78rem; }
 .inicio__sesion { margin: 0; font-family: var(--fuente-titulo); font-size: 1.2rem; font-weight: 700; overflow-wrap: anywhere; }

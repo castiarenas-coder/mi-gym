@@ -68,19 +68,19 @@ function SeccionApariencia() {
     <section className="tarjeta bloque" aria-labelledby="aj-apariencia">
       <h2 id="aj-apariencia" className="bloque__titulo">Apariencia</h2>
       <p className="bloque__ayuda">Se guarda en este dispositivo y vale para todas las personas.</p>
-      <div className="opciones" role="radiogroup" aria-label="Tema">
+      <div className="apariencia__opciones" role="radiogroup" aria-label="Tema">
         {TEMAS.map(t => (
-          <label key={t.id} className="opcion">
+          <label key={t.id} className="apariencia__opcion">
             <input type="radio" name="tema" checked={apariencia.tema === t.id} onChange={() => cambiar({ tema: t.id })} aria-label={t.nombre} />
             <span>{t.nombre}</span>
           </label>
         ))}
       </div>
-      <div className="opciones" role="radiogroup" aria-label="Color de acento">
+      <div className="apariencia__opciones" role="radiogroup" aria-label="Color de acento">
         {ACENTOS.map(a => (
-          <label key={a.id} className="opcion">
+          <label key={a.id} className="apariencia__opcion">
             <input type="radio" name="acento" checked={apariencia.acento === a.id} onChange={() => cambiar({ acento: a.id })} aria-label={`Acento ${a.nombre}`} />
-            <span className="opcion__muestra" style={{ background: claro ? a.colorClaro : a.color }} aria-hidden="true" />
+            <span className="apariencia__muestra" style={{ background: claro ? a.colorClaro : a.color }} aria-hidden="true" />
             <span>{a.nombre}</span>
           </label>
         ))}

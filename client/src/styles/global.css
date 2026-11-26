@@ -34,7 +34,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .lateral { display: contents; }
 .header {
   position: sticky; top: 0; z-index: 10;
-  height: var(--alto-header);
+  box-sizing: border-box;
+  height: calc(var(--alto-header) + env(safe-area-inset-top));
   display: flex; align-items: center; gap: 4px;
   padding: env(safe-area-inset-top) var(--espacio) 0;
   background: color-mix(in srgb, var(--fondo) 88%, transparent);
