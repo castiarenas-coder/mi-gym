@@ -112,6 +112,12 @@ select.control { appearance: none; padding-right: 36px; background-image: linear
 .bloque { display: grid; gap: 12px; align-content: start; }
 .bloque__titulo { font-size: 0.95rem; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--texto-suave); font-family: var(--fuente-texto); font-weight: 800; }
 .bloque .bloque__titulo { margin: 0; }
+.opciones { display: flex; flex-wrap: wrap; gap: 8px; }
+.opcion { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 16px; border-radius: 999px; background: var(--superficie); border: 1px solid var(--borde); color: var(--texto); font-weight: 700; cursor: pointer; }
+.opcion:has(input:checked) { border-color: var(--acento); box-shadow: 0 0 0 1px var(--acento); }
+.opcion:has(input:focus-visible) { outline: 2px solid var(--acento); outline-offset: 2px; }
+.opcion input { accent-color: var(--acento); width: 18px; height: 18px; margin: 0; }
+.opcion__muestra { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--borde); }
 .bloque__ayuda { margin: 0; color: var(--texto-suave); font-size: 0.92rem; }
 .pasos { margin: 0; padding: 0; list-style: none; counter-reset: paso; display: grid; gap: 12px; }
 .pasos li { counter-increment: paso; display: grid; grid-template-columns: 36px 1fr; gap: 12px; align-items: start; line-height: 1.5; }

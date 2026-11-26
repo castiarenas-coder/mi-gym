@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { ACENTOS, aplicarApariencia, guardarApariencia, leerApariencia, type Apariencia, type Tema } from '../lib/apariencia'
 import { Copy, Download, Heart, Pencil, Plus, Power, RotateCcw, Save, Trash2, Upload } from 'lucide-react'
 import { useBorrarPersona, useCrearPersona, useEditarPersona, type Persona } from '../api/personas'
 import { usePersonaActiva } from '../app/PersonaContext'
@@ -42,6 +43,46 @@ function SeccionDonaciones() {
         </a>
       </div>
       {copiado && <p className="bloque__ayuda" role="status">Alias copiado</p>}
+    </section>
+  )
+}
+
+const TEMAS: { id: Tema; nombre: string }[] = [
+  { id: 'sistema', nombre: 'Sistema' },
+  { id: 'oscuro', nombre: 'Oscuro' },
+  { id: 'claro', nombre: 'Claro' },
+]
+
+/** Tema y color de acento: se guardan en este dispositivo y valen para todas las personas. */
+function SeccionApariencia() {
+  const [apariencia, setApariencia] = useState<Apariencia>(() => leerApariencia())
+  function cambiar(cambio: Partial<Apariencia>) {
+    const nueva = { ...apariencia, ...cambio }
+    setApariencia(nueva)
+    guardarApariencia(nueva)
+    aplicarApariencia(nueva)
+  }
+  return (
+    <section className="tarjeta bloque" aria-labelledby="aj-apariencia">
+      <h2 id="aj-apariencia" className="bloque__titulo">Apariencia</h2>
+      <p className="bloque__ayuda">Se guarda en este dispositivo y vale para todas las personas.</p>
+      <div className="opciones" role="radiogroup" aria-label="Tema">
+        {TEMAS.map(t => (
+          <label key={t.id} className="opcion">
+            <input type="radio" name="tema" checked={apariencia.tema === t.id} onChange={() => cambiar({ tema: t.id })} aria-label={t.nombre} />
+            <span>{t.nombre}</span>
+          </label>
+        ))}
+      </div>
+      <div className="opciones" role="radiogroup" aria-label="Color de acento">
+        {ACENTOS.map(a => (
+          <label key={a.id} className="opcion">
+            <input type="radio" name="acento" checked={apariencia.acento === a.id} onChange={() => cambiar({ acento: a.id })} aria-label={`Acento ${a.nombre}`} />
+            <span className="opcion__muestra" style={{ background: a.color }} aria-hidden="true" />
+            <span>{a.nombre}</span>
+          </label>
+        ))}
+      </div>
     </section>
   )
 }
@@ -142,6 +183,8 @@ export function Ajustes() {
     <div className="pagina">
       <h1>Ajustes</h1>
       {mensaje && <p className={mensaje.tipo === 'ok' ? 'aviso aviso--ok' : 'aviso aviso--error'} role={mensaje.tipo === 'ok' ? 'status' : 'alert'}>{mensaje.texto}</p>}
+
+      <SeccionApariencia />
 
       <SeccionPersonas />
 
