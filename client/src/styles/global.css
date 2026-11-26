@@ -3,6 +3,7 @@
 @import './rutinas.css';
 @import './entrenar.css';
 @import './personas.css';
+@import './ui.css';
 
 *, *::before, *::after { box-sizing: border-box; }
 html, body, #root { height: 100%; }

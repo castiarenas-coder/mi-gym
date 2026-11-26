@@ -1,0 +1,47 @@
+/* Componentes base: leen solo tokens */
+.marca { display: inline-flex; align-items: center; gap: 8px; color: var(--texto); }
+.marca__isotipo { color: var(--acento); flex: none; }
+.marca__nombre {
+  font-family: var(--fuente-titulo); font-stretch: 75%; font-weight: 800;
+  font-size: var(--t-subtitulo); letter-spacing: 0.02em; text-transform: uppercase;
+}
+
+.estado-vacio {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 8px; padding: calc(var(--espacio) * 3) var(--espacio);
+  border: 1px dashed var(--borde); border-radius: var(--radio-l);
+}
+.estado-vacio__icono {
+  display: grid; place-items: center; width: 64px; height: 64px;
+  border-radius: var(--radio-l); background: var(--superficie-2); color: var(--texto-suave);
+}
+.estado-vacio__titulo { margin: 0; font-size: var(--t-subtitulo); }
+.estado-vacio__texto { margin: 0; color: var(--texto-suave); max-width: 32ch; }
+.estado-vacio__accion {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: var(--toque); padding: 0 calc(var(--espacio) * 1.5); margin-top: 8px;
+  border-radius: var(--radio-m); background: var(--acento); color: var(--acento-texto);
+  font-weight: 700; text-decoration: none;
+}
+
+.metrica {
+  display: flex; flex-direction: column; gap: 2px; padding: var(--espacio);
+  background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radio-m);
+}
+.metrica__valor { display: flex; align-items: baseline; gap: 4px; }
+.metrica__numero {
+  font-family: var(--fuente-titulo); font-stretch: 75%; font-weight: 800;
+  font-size: var(--t-display); line-height: 1.05; color: var(--texto);
+}
+.metrica__unidad { font-size: var(--t-chico); color: var(--texto-suave); }
+.metrica__etiqueta { font-size: var(--t-chico); color: var(--texto-suave); }
+
+.cabecera-pagina {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--espacio);
+  min-height: var(--toque); margin-bottom: var(--espacio);
+}
+.cabecera-pagina__titulo {
+  margin: 0; font-family: var(--fuente-titulo); font-stretch: 75%; font-weight: 800;
+  font-size: var(--t-titulo); line-height: 1.1;
+}
+.cabecera-pagina__accion { display: flex; align-items: center; gap: 8px; flex: none; }
