@@ -103,9 +103,9 @@ describe('Entrenar en grupo', () => {
     expect(await screen.findByRole('heading', { name: '¡Entrenamiento en grupo terminado!' })).toBeInTheDocument()
     const yo = within(screen.getByRole('region', { name: 'Resumen de Yo' }))
     expect(yo.getByText(/Récord nuevo/)).toBeInTheDocument()
-    expect(yo.getByText('960 kg')).toBeInTheDocument()
+    expect(yo.getByText('960')).toBeInTheDocument()
     const ana = within(screen.getByRole('region', { name: 'Resumen de Ana' }))
-    expect(ana.getByText('640 kg')).toBeInTheDocument()
+    expect(ana.getByText('640')).toBeInTheDocument()
   })
 
   it('permite sacar a un acompañante a mitad del entrenamiento', async () => {

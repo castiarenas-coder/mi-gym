@@ -9,6 +9,7 @@ import { useRutinas } from '../api/rutinas'
 import type { Sesion } from '../api/tipos'
 import { ResumenSesion } from '../components/ResumenSesion'
 import { SesionEnCurso } from '../components/SesionEnCurso'
+import { CabeceraPagina } from '../components/ui/CabeceraPagina'
 
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`
 
@@ -73,10 +74,10 @@ function Elegir() {
 
   return (
     <div className="pagina">
-      <div className="cabecera-pagina">
-        <h1>Entrenar</h1>
-        <Link to="/historial" className="boton boton--secundario"><History size={20} aria-hidden /> Historial</Link>
-      </div>
+      <CabeceraPagina
+        titulo="Entrenar"
+        accion={<Link to="/historial" className="boton boton--secundario"><History size={20} aria-hidden /> Historial</Link>}
+      />
       <p className="bloque__ayuda">Elegí el día que te toca o armá una sesión libre. Tu entrenamiento queda guardado aunque cierres la página.</p>
       {error && !pendiente && <p className="aviso aviso--error" role="alert">{error}</p>}
 
@@ -125,7 +126,7 @@ export function Entrenar() {
   if (terminada) {
     return (
       <div className="pagina">
-        <h1>Entrenar</h1>
+        <CabeceraPagina titulo="Entrenar" />
         {terminada.grupo ? (
           <>
             <h2 className="resumen-sesion__titulo">¡Entrenamiento en grupo terminado!</h2>
@@ -141,8 +142,8 @@ export function Entrenar() {
       </div>
     )
   }
-  if (activa.isPending) return <div className="pagina"><h1>Entrenar</h1><p className="aviso">Buscando tu entrenamiento…</p></div>
-  if (activa.isError) return <div className="pagina"><h1>Entrenar</h1><p className="aviso aviso--error" role="alert">No pudimos cargar tu entrenamiento: {activa.error.message}</p></div>
+  if (activa.isPending) return <div className="pagina"><CabeceraPagina titulo="Entrenar" /><p className="aviso">Buscando tu entrenamiento…</p></div>
+  if (activa.isError) return <div className="pagina"><CabeceraPagina titulo="Entrenar" /><p className="aviso aviso--error" role="alert">No pudimos cargar tu entrenamiento: {activa.error.message}</p></div>
   if (activa.data) return <SesionEnCurso key={activa.data.id} sesion={activa.data} onTerminada={setTerminada} />
   return <Elegir />
 }

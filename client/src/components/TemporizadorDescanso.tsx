@@ -18,7 +18,7 @@ export function TemporizadorDescanso({ restante, total, terminado, onAjustar, on
       <div className="descanso__cuerpo">
         <div className="descanso__tiempo" role="timer" aria-live="off">
           <span className="descanso__etiqueta">{terminado ? '¡A la siguiente serie!' : 'Descanso'}</span>
-          <strong>{terminado ? '0:00' : reloj(restante)}</strong>
+          <strong className="numero">{terminado ? '0:00' : reloj(restante)}</strong>
         </div>
         {!terminado && (
           <>

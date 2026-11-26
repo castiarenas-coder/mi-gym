@@ -33,7 +33,7 @@ describe('página Rutinas', () => {
   it('invita a crear la primera rutina', async () => {
     api([])
     verApp('/rutinas')
-    expect(await screen.findByText('Todavía no tenés rutinas. Creá la primera.')).toBeInTheDocument()
+    expect(await screen.findByText('Todavía no tenés rutinas')).toBeInTheDocument()
   })
 
   it('crea una rutina y abre su edición', async () => {

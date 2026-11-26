@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ChevronRight, Copy, Plus, Trash2 } from 'lucide-react'
+import { ChevronRight, Copy, Dumbbell, Plus, Trash2 } from 'lucide-react'
 import { useBorrarRutina, useCrearRutina, useDuplicarRutina, useRutinas } from '../api/rutinas'
 import type { RutinaResumen } from '../api/tipos'
 import { ConfirmarDialogo } from '../components/ConfirmarDialogo'
+import { CabeceraPagina } from '../components/ui/CabeceraPagina'
+import { EstadoVacio } from '../components/ui/EstadoVacio'
 
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`
 
@@ -29,14 +31,14 @@ export function Rutinas() {
 
   return (
     <div className="pagina">
-      <div className="cabecera-pagina">
-        <h1>Rutinas</h1>
-        {!creando && (
+      <CabeceraPagina
+        titulo="Rutinas"
+        accion={!creando && (
           <button type="button" className="boton boton--principal" onClick={() => setCreando(true)}>
             <Plus size={20} aria-hidden /> Nueva rutina
           </button>
         )}
-      </div>
+      />
 
       {creando && (
         <form className="tarjeta formulario-linea" onSubmit={alCrear}>
@@ -52,7 +54,9 @@ export function Rutinas() {
 
       {rutinas.isPending && <p className="aviso">Cargando rutinas…</p>}
       {rutinas.isError && <p className="aviso aviso--error" role="alert">No pudimos cargar tus rutinas.</p>}
-      {rutinas.isSuccess && rutinas.data.length === 0 && <p className="aviso">Todavía no tenés rutinas. Creá la primera.</p>}
+      {rutinas.isSuccess && rutinas.data.length === 0 && (
+        <EstadoVacio icono={Dumbbell} titulo="Todavía no tenés rutinas" texto="Creá la primera y armá tus días de entrenamiento." />
+      )}
 
       <div className="grilla-rutinas">
         {rutinas.data?.map(r => (

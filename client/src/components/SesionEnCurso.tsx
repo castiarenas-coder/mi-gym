@@ -70,7 +70,7 @@ function FilaSerie({ serie, onGuardar, onQuitar }: FilaProps) {
     <li className={`serie${serie.hecha ? ' serie--hecha' : ''}`}>
       <span className="serie__n" aria-hidden>{serie.n}</span>
       <input
-        className="control serie__campo"
+        className="control serie__campo numero"
         inputMode="decimal"
         aria-label={`Peso (kg) serie ${serie.n}`}
         placeholder="kg"
@@ -80,7 +80,7 @@ function FilaSerie({ serie, onGuardar, onQuitar }: FilaProps) {
         onFocus={e => e.target.select()}
       />
       <input
-        className="control serie__campo"
+        className="control serie__campo numero"
         inputMode="numeric"
         aria-label={`Repeticiones serie ${serie.n}`}
         placeholder="reps"
@@ -108,10 +108,11 @@ function FilaSerie({ serie, onGuardar, onQuitar }: FilaProps) {
 interface TarjetaProps {
   sesion: number
   ejercicio: EjercicioSesion
+  actual: boolean
   onHecha: (descanso: number) => void
 }
 
-function TarjetaEjercicioSesion({ sesion, ejercicio, onHecha }: TarjetaProps) {
+function TarjetaEjercicioSesion({ sesion, ejercicio, actual, onHecha }: TarjetaProps) {
   const actualizar = useActualizarSerie()
   const agregar = useAgregarSerie()
   const quitar = useQuitarSerie()
@@ -124,7 +125,7 @@ function TarjetaEjercicioSesion({ sesion, ejercicio, onHecha }: TarjetaProps) {
     : 'Ejercicio extra'
 
   return (
-    <section className="ej-sesion" aria-labelledby={id}>
+    <section className={`ej-sesion${actual ? ' ej-sesion--actual' : ''}`} aria-labelledby={id}>
       <header className="ej-sesion__cab">
         <AnimacionEjercicio ejercicio={ejercicio} miniatura className="miniatura miniatura--grande" />
         <div className="ej-sesion__titulo">
@@ -204,6 +205,8 @@ export function SesionEnCurso({ sesion: propia, onTerminada }: Props) {
   const series = sesion?.ejercicios.flatMap(e => e.series) ?? []
   const hechas = series.filter(s => s.hecha).length
   const pendientes = series.length - hechas
+  // El ejercicio actual es el primero con alguna serie sin marcar.
+  const actualId = sesion?.ejercicios.find(e => e.series.some(s => !s.hecha))?.ejercicio_id
 
   // Cierra el aviso de "descanso terminado" solo, para no tapar la pantalla.
   const { terminado, saltar } = descanso
@@ -237,7 +240,7 @@ export function SesionEnCurso({ sesion: propia, onTerminada }: Props) {
           <h1>{propia.titulo}</h1>
         </div>
         <div className="sesion-cab__datos">
-          <div className="sesion-cab__reloj" role="timer" aria-label="Tiempo de entrenamiento">{reloj(segundos)}</div>
+          <div className="sesion-cab__reloj numero" role="timer" aria-label="Tiempo de entrenamiento">{reloj(segundos)}</div>
           <p className="sesion-cab__series">{hechas} de {series.length} series</p>
         </div>
         <button type="button" className="boton boton--principal boton--ancho" onClick={() => setTerminando(true)}>
@@ -272,7 +275,7 @@ export function SesionEnCurso({ sesion: propia, onTerminada }: Props) {
       {!sesion && ajena.isError && <p className="aviso aviso--error" role="alert">No pudimos cargar esta sesión.</p>}
       {!sesion && !ajena.isError && <p className="aviso">Cargando…</p>}
       {sesion && sesion.ejercicios.length === 0 && <p className="aviso">Esta sesión está vacía. Agregá un ejercicio para empezar.</p>}
-      {sesion?.ejercicios.map(e => <TarjetaEjercicioSesion key={`${sesion.id}-${e.ejercicio_id}`} sesion={sesion.id} ejercicio={e} onHecha={empezarDescanso} />)}
+      {sesion?.ejercicios.map(e => <TarjetaEjercicioSesion key={`${sesion.id}-${e.ejercicio_id}`} sesion={sesion.id} ejercicio={e} actual={e.ejercicio_id === actualId} onHecha={empezarDescanso} />)}
 
       <button type="button" className="boton boton--secundario boton--ancho" onClick={() => setBuscando(true)}>
         <Plus size={20} aria-hidden /> Agregar ejercicio

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Trophy } from 'lucide-react'
 import type { Sesion } from '../api/tipos'
 import { duracionLarga, kg, miles } from '../lib/formato'
+import { Metrica } from './ui/Metrica'
 
 /** Números de una sesión terminada: duración, volumen, series y récords nuevos. */
 export function ResumenSesion({ sesion, titulo, region = 'Resumen del entrenamiento', icono }: { sesion: Sesion; titulo?: string; region?: string; icono?: ReactNode }) {
@@ -9,12 +10,12 @@ export function ResumenSesion({ sesion, titulo, region = 'Resumen del entrenamie
   return (
     <section className="tarjeta resumen-sesion" aria-label={region}>
       {titulo && <h2 className="resumen-sesion__titulo">{icono} {titulo}</h2>}
-      <dl className="estadisticas">
-        <div className="estadistica"><dt>Duración</dt><dd>{duracionLarga(sesion.duracion)}</dd></div>
-        <div className="estadistica"><dt>Volumen total</dt><dd>{miles(resumen.volumen_kg)} kg</dd></div>
-        <div className="estadistica"><dt>Series</dt><dd>{resumen.series_hechas}</dd></div>
-        <div className="estadistica"><dt>Ejercicios</dt><dd>{resumen.ejercicios}</dd></div>
-      </dl>
+      <div className="resumen-metricas">
+        <Metrica valor={duracionLarga(sesion.duracion)} etiqueta="Duración" />
+        <Metrica valor={miles(resumen.volumen_kg)} unidad="kg" etiqueta="Volumen total" />
+        <Metrica valor={resumen.series_hechas} etiqueta="Series" />
+        <Metrica valor={resumen.ejercicios} etiqueta="Ejercicios" />
+      </div>
       {resumen.records.length > 0 && (
         <ul className="records-nuevos" aria-label="Récords nuevos">
           {resumen.records.map(r => (
