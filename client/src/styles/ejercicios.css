@@ -11,7 +11,7 @@
   border: 1px solid var(--borde); border-radius: var(--radio-s);
   font: inherit; font-size: 1rem;
 }
-.control:focus { outline: none; border-color: var(--acento); box-shadow: 0 0 0 3px color-mix(in srgb, var(--acento) 25%, transparent); }
+.control:focus { outline: 2px solid var(--acento); outline-offset: 1px; border-color: var(--acento); }
 select.control { appearance: none; padding-right: 36px; background-image: linear-gradient(45deg, transparent 50%, var(--texto-suave) 50%), linear-gradient(135deg, var(--texto-suave) 50%, transparent 50%); background-position: calc(100% - 20px) 50%, calc(100% - 15px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
 .campo { display: grid; gap: 4px; min-width: 0; }
 .campo--crece { flex: 1; }
@@ -20,14 +20,14 @@ select.control { appearance: none; padding-right: 36px; background-image: linear
 .boton {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   min-height: var(--toque); padding: 0 20px; border-radius: 999px;
-  border: 1px solid transparent; font-weight: 800; font-size: 0.98rem;
+  border: 1px solid transparent; font-family: var(--fuente-titulo); font-stretch: 75%; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 800; font-size: 1.05rem;
   background: var(--superficie-2); color: var(--texto); cursor: pointer; text-align: center;
   transition: transform 0.08s ease, background 0.15s ease, border-color 0.15s ease;
 }
 .boton:active { transform: scale(0.97); }
 .boton:disabled { opacity: 0.5; cursor: not-allowed; }
-.boton--principal { background: var(--acento); color: var(--acento-texto); box-shadow: 0 6px 20px color-mix(in srgb, var(--acento) 30%, transparent); }
-.boton--principal:hover:not(:disabled) { background: color-mix(in srgb, var(--acento) 88%, white); }
+.boton--principal { background: var(--acento); color: var(--acento-texto); }
+.boton--principal:hover:not(:disabled) { background: color-mix(in srgb, var(--acento) 88%, var(--texto)); }
 .boton--secundario { border-color: var(--borde); }
 .boton--secundario:hover:not(:disabled) { border-color: var(--acento); }
 .boton--peligro { background: transparent; border-color: color-mix(in srgb, var(--peligro) 55%, transparent); color: var(--peligro); }
@@ -55,12 +55,12 @@ select.control { appearance: none; padding-right: 36px; background-image: linear
 
 /* ---- Búsqueda y filtros ---- */
 .busqueda { position: relative; display: flex; align-items: center; background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radio-l); padding: 0 8px 0 18px; gap: 10px; color: var(--texto-suave); }
-.busqueda:focus-within { border-color: var(--acento); box-shadow: 0 0 0 3px color-mix(in srgb, var(--acento) 22%, transparent); }
+.busqueda:focus-within { border-color: var(--acento); outline: 2px solid var(--acento); outline-offset: 1px; }
 .busqueda__input { flex: 1; min-width: 0; min-height: 54px; background: none; border: 0; outline: none; color: var(--texto); font: inherit; font-size: 1.02rem; }
 .busqueda__input::-webkit-search-cancel-button { display: none; }
 .busqueda__borrar { display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%; background: var(--superficie-2); color: var(--texto); }
 
-.chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 8px; scroll-snap-type: x proximity; scrollbar-width: thin; margin: 0 -2px; }
+.chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 8px; scroll-snap-type: x proximity; scrollbar-width: none; margin: 0 -2px; }
 .chip { flex: none; scroll-snap-align: start; display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 0 16px; border-radius: 999px; background: var(--superficie); border: 1px solid var(--borde); color: var(--texto); font-weight: 700; font-size: 0.9rem; white-space: nowrap; }
 .chip:hover { border-color: var(--acento); }
 .chip--activo { background: var(--acento); color: var(--acento-texto); border-color: var(--acento); }

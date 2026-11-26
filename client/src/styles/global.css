@@ -47,6 +47,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .tarjeta {
   background: var(--superficie); border: 1px solid var(--borde);
   border-radius: var(--radio-l); padding: calc(var(--espacio) * 1.25);
+  box-shadow: var(--sombra);
 }
 .proximamente { text-align: center; padding: 48px 24px; }
 .proximamente svg { color: var(--acento); margin-bottom: 12px; }
@@ -78,14 +79,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .contenido { padding-bottom: var(--espacio); }
 }
 
-/* Sistema visual: sin brillos ni degradados; sombra sutil solo en el tema claro (--sombra). */
-.tarjeta { box-shadow: var(--sombra); }
-.boton { font-family: var(--fuente-titulo); font-stretch: 75%; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 800; font-size: 1.05rem; }
-.boton--principal { background: var(--acento); color: var(--acento-texto); box-shadow: none; }
-.boton--principal:hover:not(:disabled) { background: color-mix(in srgb, var(--acento) 88%, var(--texto)); }
-.chips, .pestanas-grupo, .tabs { scrollbar-width: none; }
+.pestanas-grupo, .tabs { scrollbar-width: none; }
 .chips::-webkit-scrollbar, .pestanas-grupo::-webkit-scrollbar, .tabs::-webkit-scrollbar { display: none; }
-.control:focus { box-shadow: none; outline: 2px solid var(--acento); outline-offset: 1px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
