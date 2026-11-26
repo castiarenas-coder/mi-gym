@@ -32,7 +32,7 @@ test('crea el .lnk y el lanzador (en una carpeta de prueba, no en el Escritorio)
   fs.mkdirSync(destino);
   try {
     const { lnk, vbs } = crearAccesoDirecto({ raiz: raizTmp, destino });
-    assert.equal(path.basename(lnk), 'Mi Gym.lnk');
+    assert.equal(path.basename(lnk), 'Rumbo Fit.lnk');
     assert.ok(fs.existsSync(lnk) && fs.statSync(lnk).size > 0);
     assert.ok(fs.readFileSync(vbs, 'utf8').includes(raizTmp));
   } finally {

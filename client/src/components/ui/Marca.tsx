@@ -4,18 +4,16 @@ export function Marca({ compacta = false }: { compacta?: boolean }) {
   const isotipo = (
     <svg
       className="marca__isotipo"
-      viewBox="0 0 24 24"
+      viewBox="0 0 96 96"
       width="24"
       height="24"
-      fill="currentColor"
       aria-hidden={compacta ? undefined : true}
       focusable="false"
     >
-      <rect x="1" y="8" width="3" height="8" rx="1" />
-      <rect x="4.5" y="5" width="3.5" height="14" rx="1" />
-      <rect x="8" y="10.5" width="8" height="3" />
-      <rect x="16" y="5" width="3.5" height="14" rx="1" />
-      <rect x="20" y="8" width="3" height="8" rx="1" />
+      <circle cx="48" cy="48" r="40" fill="none" stroke="currentColor" strokeWidth="6" />
+      <path d="M48 16 L60 48 L48 80 L36 48 Z" fill="var(--texto-suave)" fillOpacity="0.55" />
+      <path d="M48 16 L60 48 L36 48 Z" fill="currentColor" />
+      <circle cx="48" cy="48" r="5" fill="var(--fondo)" />
     </svg>
   );
   if (compacta) {

@@ -28,11 +28,11 @@ export function exportarDatos(db, { ahora = new Date() } = {}) {
 }
 
 function validar(datos, db) {
-  if (!datos || typeof datos !== 'object' || Array.isArray(datos) || datos.app !== 'mi-gym') throw new ErrorRespaldo('El archivo no es un respaldo de Mi Gym.');
+  if (!datos || typeof datos !== 'object' || Array.isArray(datos) || datos.app !== 'mi-gym') throw new ErrorRespaldo('El archivo no es un respaldo de Rumbo Fit.');
   if (!Number.isInteger(datos.schema_version) || datos.schema_version < 1) throw new ErrorRespaldo('El archivo no indica la versión de los datos.');
   const actual = versionActual(db);
-  if (datos.schema_version > actual) throw new ErrorRespaldo('El archivo viene de una versión más nueva de Mi Gym. Actualizá la app antes de importarlo.', 409);
-  if (datos.schema_version < actual) throw new ErrorRespaldo('El archivo viene de una versión más vieja de Mi Gym y no se puede importar. Restaurá un respaldo de la lista en su lugar.', 409);
+  if (datos.schema_version > actual) throw new ErrorRespaldo('El archivo viene de una versión más nueva de Rumbo Fit. Actualizá la app antes de importarlo.', 409);
+  if (datos.schema_version < actual) throw new ErrorRespaldo('El archivo viene de una versión más vieja de Rumbo Fit y no se puede importar. Restaurá un respaldo de la lista en su lugar.', 409);
   for (const t of [...TABLAS_USUARIO, 'ejercicios']) {
     if (!Array.isArray(datos[t])) throw new ErrorRespaldo(`Al archivo le falta la sección "${t}".`);
     if (datos[t].some(f => !f || typeof f !== 'object' || Array.isArray(f))) throw new ErrorRespaldo(`La sección "${t}" tiene filas inválidas.`);
@@ -97,7 +97,7 @@ export function restaurarArchivo(db, backupsDir, archivo) {
     const prueba = new DatabaseSync(copia);
     try { prueba.prepare('SELECT COUNT(*) FROM ejercicios').get(); } catch { throw new ErrorRespaldo('Ese archivo no es un respaldo válido.'); } finally { prueba.close(); }
     const version = (() => { const t = new DatabaseSync(copia); try { return versionActual(t); } finally { t.close(); } })();
-    if (version > versionActual(db)) throw new ErrorRespaldo('Ese respaldo viene de una versión más nueva de Mi Gym.', 409);
+    if (version > versionActual(db)) throw new ErrorRespaldo('Ese respaldo viene de una versión más nueva de Rumbo Fit.', 409);
     const t = openDb(copia); // la sube a la versión actual si era más vieja
     try { datos = exportarDatos(t); } finally { t.close(); }
   } finally {

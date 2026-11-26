@@ -8,7 +8,7 @@
 
     <application
         android:name=".App"
-        android:label="Mi Gym"
+        android:label="Rumbo Fit"
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/Theme.MiGym"
         android:networkSecurityConfig="@xml/network_security_config"

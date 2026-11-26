@@ -30,7 +30,7 @@ export function ProveedorPersona({ children }: { children: ReactNode }) {
   if (lista.isError) {
     return (
       <div className="pantalla-estado">
-        <p className="aviso aviso--error" role="alert">No pudimos conectar con Mi Gym: {lista.error.message}</p>
+        <p className="aviso aviso--error" role="alert">No pudimos conectar con Rumbo Fit: {lista.error.message}</p>
         <button type="button" className="boton boton--principal" onClick={() => void lista.refetch()}>Reintentar</button>
       </div>
     )

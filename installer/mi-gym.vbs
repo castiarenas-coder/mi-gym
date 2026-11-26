@@ -1,4 +1,4 @@
-' Mi Gym: lanzador de la version instalada. No muestra ninguna consola.
+' Rumbo Fit: lanzador de la version instalada. No muestra ninguna consola.
 ' 1) Si SU servidor no responde, lo arranca oculto (datos en %APPDATA%\Mi Gym).
 ' 2) Espera a que este listo y abre la app en una ventana propia (Edge/Chrome en modo app) o en el navegador.
 ' Si el puerto 8788 lo usa otra aplicacion, el servidor toma el siguiente libre y lo anota en puerto.txt.
@@ -39,7 +39,7 @@ Function LeerPuerto()
   On Error GoTo 0
 End Function
 
-' Hay un Mi Gym en ese puerto Y usa ESTA carpeta de datos? (Otra copia de Mi Gym, p. ej. una de desarrollo, no cuenta.)
+' Hay un Rumbo Fit en ese puerto Y usa ESTA carpeta de datos? (Otra copia de Rumbo Fit, p. ej. una de desarrollo, no cuenta.)
 Function Arriba(p)
   Arriba = False
   On Error Resume Next
@@ -185,7 +185,7 @@ If Not Arriba(puerto) Then
   End If
   If Not Arriba(puerto) Then
     Anotar "El servidor no respondio a tiempo (puerto " & puerto & ")."
-    MsgBox "Mi Gym no pudo arrancar." & vbCrLf & vbCrLf & "Si el problema sigue, reinstalalo o revisa este archivo:" & vbCrLf & log, vbExclamation, "Mi Gym"
+    MsgBox "Rumbo Fit no pudo arrancar." & vbCrLf & vbCrLf & "Si el problema sigue, reinstalalo o revisa este archivo:" & vbCrLf & log, vbExclamation, "Rumbo Fit"
     WScript.Quit 1
   End If
 End If

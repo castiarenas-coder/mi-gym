@@ -9,8 +9,8 @@ const raiz = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const res = path.join(raiz, 'android', 'app', 'src', 'main', 'res');
 const svg = fs.readFileSync(path.join(raiz, 'client', 'public', 'icon.svg'), 'utf8');
 
-// Primer plano del ícono adaptivo: solo las pesas (sin el fondo redondeado), centradas en la zona segura (108 dp, 66 dp visibles).
-const pesas = svg.replace(/<rect width="64" height="64"[^>]*\/>/, '').replace('viewBox="0 0 64 64"', 'viewBox="-13 -13 90 90"');
+// Primer plano del ícono adaptivo: solo la brújula (sin el fondo redondeado), centrada en la zona segura (108 dp, 66 dp visibles).
+const brujula = svg.replace(/<rect width="96" height="96"[^>]*\/>/, '').replace('viewBox="0 0 96 96"', 'viewBox="-22 -22 140 140"');
 const DENSIDADES = { mdpi: 48, hdpi: 72, xhdpi: 96, xxhdpi: 144, xxxhdpi: 192 };
 
 for (const [d, px] of Object.entries(DENSIDADES)) {
@@ -19,5 +19,5 @@ for (const [d, px] of Object.entries(DENSIDADES)) {
   await sharp(Buffer.from(svg), { density: 576 }).resize(px, px).png().toFile(path.join(dir, 'ic_launcher.png'));
 }
 fs.mkdirSync(path.join(res, 'drawable-nodpi'), { recursive: true });
-await sharp(Buffer.from(pesas), { density: 576 }).resize(432, 432).png().toFile(path.join(res, 'drawable-nodpi', 'ic_launcher_foreground.png'));
+await sharp(Buffer.from(brujula), { density: 576 }).resize(432, 432).png().toFile(path.join(res, 'drawable-nodpi', 'ic_launcher_foreground.png'));
 console.log('Íconos listos');

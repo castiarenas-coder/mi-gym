@@ -2,7 +2,7 @@
   "name": "mi-gym",
   "version": "0.2.0",
   "private": true,
-  "description": "Mi Gym: ejercicios, rutinas y progreso, todo en español y guardado en tu PC.",
+  "description": "Rumbo Fit: ejercicios, rutinas y progreso, todo en español y guardado en tu PC.",
   "type": "module",
   "main": "server/index.js",
   "scripts": {

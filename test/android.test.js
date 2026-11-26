@@ -50,14 +50,14 @@ test('writeBuildId escribe un id distinto en cada armado', () => {
 });
 
 test('nombreApk lleva la versión y el ABI', () => {
-  assert.equal(nombreApk('0.2.0', 'arm64'), 'Mi-Gym-0.2.0-arm64.apk');
+  assert.equal(nombreApk('0.2.0', 'arm64'), 'Rumbo-Fit-0.2.0-arm64.apk');
 });
 
 test('pickApks elige los APK firmados de arm64 y arm32 y falla si falta uno', () => {
   const files = ['app-arm64-v8a-release.apk', 'app-armeabi-v7a-release.apk', 'output-metadata.json'];
   assert.deepEqual(pickApks(files, '0.2.0'), [
-    { from: 'app-arm64-v8a-release.apk', to: 'Mi-Gym-0.2.0-arm64.apk' },
-    { from: 'app-armeabi-v7a-release.apk', to: 'Mi-Gym-0.2.0-arm32.apk' },
+    { from: 'app-arm64-v8a-release.apk', to: 'Rumbo-Fit-0.2.0-arm64.apk' },
+    { from: 'app-armeabi-v7a-release.apk', to: 'Rumbo-Fit-0.2.0-arm32.apk' },
   ]);
   assert.throws(() => pickApks(['app-arm64-v8a-release-unsigned.apk'], '0.2.0'), /keystore\.properties/);
 });

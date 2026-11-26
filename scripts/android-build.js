@@ -25,7 +25,7 @@ const TARGETS = [
   { abi: 'armeabi-v7a', sufijo: 'arm32' },
 ];
 
-export const nombreApk = (version, sufijo) => `Mi-Gym-${version}-${sufijo}.apk`;
+export const nombreApk = (version, sufijo) => `Rumbo-Fit-${version}-${sufijo}.apk`;
 
 // De los archivos que dejó Gradle elige los APK firmados a publicar; si falta uno, avisa cuál.
 export function pickApks(files, version) {

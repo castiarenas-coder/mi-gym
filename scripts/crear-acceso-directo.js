@@ -1,4 +1,4 @@
-// Crea el acceso directo "Mi Gym" en el Escritorio (Windows). Al abrirlo: levanta el servidor oculto si
+// Crea el acceso directo "Rumbo Fit" en el Escritorio (Windows). Al abrirlo: levanta el servidor oculto si
 // no está corriendo (compilando la interfaz antes si falta client/dist) y abre la app en el navegador.
 //   npm run acceso-directo                    crea el acceso directo en el Escritorio
 //   npm run acceso-directo -- --quitar        lo borra
@@ -10,7 +10,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const raizPorDefecto = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const NOMBRE = 'Mi Gym';
+const NOMBRE = 'Rumbo Fit';
 
 // Las comillas se duplican dentro de un literal de VBScript.
 const q = s => String(s).replace(/"/g, '""');
@@ -22,7 +22,7 @@ export function generarLanzador({ raiz = raizPorDefecto, node = process.execPath
   const servidor = `cmd /c ""${q(node)}" "${q(path.join(raiz, 'server', 'index.js'))}" >> "${q(log)}" 2>&1"`;
   const compilar = `cmd /c "cd /d "${q(raiz)}" && npm run build >> "${q(log)}" 2>&1"`;
   return [
-    "' Mi Gym: levanta el servidor (si hace falta) y abre la app. No muestra ninguna consola.",
+    "' Rumbo Fit: levanta el servidor (si hace falta) y abre la app. No muestra ninguna consola.",
     'Set sh = CreateObject("WScript.Shell")',
     'Set fso = CreateObject("Scripting.FileSystemObject")',
     `sh.CurrentDirectory = "${q(raiz)}"`,
@@ -90,6 +90,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   } else {
     const { lnk } = crearAccesoDirecto({ destino });
     console.log(`Listo: ${lnk}`);
-    console.log('Al abrirlo arranca Mi Gym (si hace falta) y lo abre en el navegador.');
+    console.log('Al abrirlo arranca Rumbo Fit (si hace falta) y lo abre en el navegador.');
   }
 }

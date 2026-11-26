@@ -1,4 +1,4 @@
-// Arma el instalador de Windows (un solo Mi-Gym-Setup-<versión>.exe, sin pedir nada al usuario):
+// Arma el instalador de Windows (un solo Rumbo-Fit-Setup-<versión>.exe, sin pedir nada al usuario):
 //   npm run instalador                  compila la interfaz, prepara el catálogo, arma release/staging/ y corre Inno Setup
 //   npm run instalador -- --reusar      reutiliza client/dist y dist-catalogo si ya existen (más rápido)
 // Requiere Inno Setup 6 (variable ISCC o %LOCALAPPDATA%\Programs\Inno Setup 6) y internet la primera vez (Node portátil).
@@ -152,7 +152,7 @@ export async function main({ reusar = process.argv.includes('--reusar') } = {}) 
 
   console.log('Compilando el instalador con Inno Setup...');
   execFileSync(iscc, [`/DAppVersion=${version}`, `/DStaging=${staging}`, `/DSalida=${release}`, path.join(raiz, 'installer', 'mi-gym.iss')], { stdio: 'inherit' });
-  const exe = path.join(release, `Mi-Gym-Setup-${version}.exe`);
+  const exe = path.join(release, `Rumbo-Fit-Setup-${version}.exe`);
   console.log(`\nListo: ${exe} (${mb(fs.statSync(exe).size)})`);
   return exe;
 }

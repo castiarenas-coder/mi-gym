@@ -33,7 +33,7 @@ function SeccionDonaciones() {
   return (
     <section className="tarjeta bloque" aria-labelledby="aj-donar">
       <h2 id="aj-donar" className="bloque__titulo">Donaciones</h2>
-      <p className="bloque__ayuda">Mi Gym es gratis y de código abierto. Si te sirve y querés apoyar el proyecto, podés donar lo que quieras.</p>
+      <p className="bloque__ayuda">Rumbo Fit es gratis y de código abierto. Si te sirve y querés apoyar el proyecto, podés donar lo que quieras.</p>
       <p className="bloque__ayuda">Mercado Pago (alias): <strong style={{ userSelect: 'all' }}>{ALIAS_MP}</strong></p>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
         <button type="button" className="boton boton--secundario" onClick={copiar}>
@@ -169,7 +169,7 @@ export function Ajustes() {
       if (datos?.app !== 'mi-gym') throw new Error('formato')
       setAImportar(datos)
     } catch {
-      setMensaje({ tipo: 'error', texto: 'Ese archivo no es un respaldo de Mi Gym.' })
+      setMensaje({ tipo: 'error', texto: 'Ese archivo no es un respaldo de Rumbo Fit.' })
     }
   }
 
@@ -222,7 +222,7 @@ export function Ajustes() {
 
       <section className="tarjeta bloque" aria-labelledby="aj-export">
         <h3 id="aj-export" className="bloque__titulo">Exportar / importar</h3>
-        <p className="bloque__ayuda">Un archivo con las personas y sus rutinas, entrenamientos, medidas y favoritos. {enAndroid ? 'Sirve para llevarlos a otro celular o guardarlos en la nube. Si desinstalás Mi Gym, los datos del celular se borran: guardá un archivo antes.' : 'Sirve para llevarlos a otra PC o guardarlos en la nube.'}</p>
+        <p className="bloque__ayuda">Un archivo con las personas y sus rutinas, entrenamientos, medidas y favoritos. {enAndroid ? 'Sirve para llevarlos a otro celular o guardarlos en la nube. Si desinstalás Rumbo Fit, los datos del celular se borran: guardá un archivo antes.' : 'Sirve para llevarlos a otra PC o guardarlos en la nube.'}</p>
         <div className="acciones">
           <a className="boton boton--secundario" href="/api/respaldo/exportar" download><Download size={18} aria-hidden /> Exportar mis datos</a>
           <button type="button" className="boton boton--secundario" onClick={() => archivoRef.current?.click()}><Upload size={18} aria-hidden /> Importar desde un archivo</button>
@@ -249,7 +249,7 @@ export function Ajustes() {
 
       <section className="tarjeta bloque" aria-labelledby="aj-acerca">
         <h2 id="aj-acerca" className="bloque__titulo">Acerca de</h2>
-        <p className="bloque__ayuda">Mi Gym {i ? `versión ${i.version}` : ''}</p>
+        <p className="bloque__ayuda">Rumbo Fit {i ? `versión ${i.version}` : ''}</p>
         {actualizacion.data?.hay_nueva && (
           <p className="aviso" role="status">
             Hay una versión nueva: v{actualizacion.data.ultima} —{' '}
@@ -258,10 +258,10 @@ export function Ajustes() {
         )}
         <p className="bloque__ayuda">Catálogo de ejercicios: free-exercise-db, de dominio público. Inspirado en doubtcrack/Fitness (licencia MIT).</p>
         {i?.apagable && !enAndroid && (
-          cerrada ? <p className="aviso" role="status">Mi Gym se cerró. Ya podés cerrar esta ventana.</p> : (
+          cerrada ? <p className="aviso" role="status">Rumbo Fit se cerró. Ya podés cerrar esta ventana.</p> : (
             <>
-              <button type="button" className="boton boton--secundario" onClick={() => setACerrar(true)}><Power size={18} aria-hidden /> Cerrar Mi Gym</button>
-              <p className="bloque__ayuda">Apaga Mi Gym por completo. Para volver a usarlo, abrilo de nuevo desde su acceso directo.</p>
+              <button type="button" className="boton boton--secundario" onClick={() => setACerrar(true)}><Power size={18} aria-hidden /> Cerrar Rumbo Fit</button>
+              <p className="bloque__ayuda">Apaga Rumbo Fit por completo. Para volver a usarlo, abrilo de nuevo desde su acceso directo.</p>
             </>
           )
         )}
@@ -271,7 +271,7 @@ export function Ajustes() {
 
       {aCerrar && (
         <ConfirmarDialogo
-          titulo="¿Cerrar Mi Gym?"
+          titulo="¿Cerrar Rumbo Fit?"
           mensaje="Se apaga la app. Tus datos quedan guardados; para volver a usarla, abrila desde el acceso directo."
           confirmar="Cerrar"
           ocupado={apagar.isPending}

@@ -1,6 +1,6 @@
 # Avisos de terceros
 
-Mi Gym se distribuye bajo licencia MIT (ver `LICENSE`). Usa o se inspira en lo siguiente.
+Rumbo Fit se distribuye bajo licencia MIT (ver `LICENSE`). Usa o se inspira en lo siguiente.
 
 ## Datos e imágenes de ejercicios
 

@@ -19,6 +19,14 @@ describe('Marca', () => {
     expect(screen.getByLabelText(NOMBRE_APP)).toBeInTheDocument();
     expect(screen.queryByText(NOMBRE_APP)).not.toBeInTheDocument();
   });
+  it('dibuja la brújula: anillo, aguja con mitad norte y punto central', () => {
+    const { container } = render(<Marca />);
+    expect(container.querySelector('svg')?.getAttribute('viewBox')).toBe('0 0 96 96');
+    expect(container.querySelector('circle[r="40"]')).not.toBeNull();
+    expect(container.querySelector('path[d="M48 16 L60 48 L48 80 L36 48 Z"]')).not.toBeNull();
+    expect(container.querySelector('path[d="M48 16 L60 48 L36 48 Z"]')).not.toBeNull();
+    expect(container.querySelector('circle[r="5"]')).not.toBeNull();
+  });
 });
 
 describe('EstadoVacio', () => {

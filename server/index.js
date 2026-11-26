@@ -25,7 +25,7 @@ let cerrar = () => {};
 const app = createApp({
   db, imgDir: config.imgDir, mediaDir: config.mediaDir, clientDir: config.clientDir, version: leerVersion(config.raiz),
   dbFile: path.resolve(config.dbFile), backupsDir: config.backupsDir, lan, port: config.port, plataforma: config.plataforma, token: config.token,
-  // Solo la versión instalada en PC ofrece "Cerrar Mi Gym" (no hay consola desde la que cortarlo); en Android no tiene sentido.
+  // Solo la versión instalada en PC ofrece "Cerrar Rumbo Fit" (no hay consola desde la que cortarlo); en Android no tiene sentido.
   apagar: config.instalado && config.plataforma !== 'android' ? () => cerrar() : null,
 });
 
@@ -48,7 +48,7 @@ if (config.instalado) {
   server = http.createServer(app);
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(config.port, host, resolve); });
 }
-console.log(`Mi Gym en http://localhost:${port}`);
+console.log(`Rumbo Fit en http://localhost:${port}`);
 if (lan) {
   for (const lista of Object.values(os.networkInterfaces())) {
     for (const i of lista ?? []) if (i.family === 'IPv4' && !i.internal) console.log(`  Desde el celular: http://${i.address}:${port}`);

@@ -48,7 +48,7 @@ export function createApp({ db, imgDir, mediaDir, clientDir, version = '0.0.0', 
     });
   });
   app.get('/api/actualizacion', async (_req, res) => res.json(await comprobarActualizacion()));
-  // Cierra el servidor (botón "Cerrar Mi Gym"). Solo si quien arranca la app lo habilita y solo desde esta PC.
+  // Cierra el servidor (botón "Cerrar Rumbo Fit"). Solo si quien arranca la app lo habilita y solo desde esta PC.
   if (apagar) {
     app.post('/api/apagar', (req, res) => {
       if (!esLoopback(req.socket.remoteAddress)) return res.status(403).json({ error: 'Solo desde esta PC' });

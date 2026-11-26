@@ -1,4 +1,4 @@
-# Mi Gym
+# Rumbo Fit
 
 Tu gimnasio en tu PC: ejercicios, rutinas y progreso, todo en español, sin cuentas, sin suscripciones y sin mandar tus datos a ningún lado.
 
@@ -21,9 +21,9 @@ Tu gimnasio en tu PC: ejercicios, rutinas y progreso, todo en español, sin cuen
 
 La forma más fácil, sin comandos ni nada que instalar antes:
 
-1. Entrá a [Releases](https://github.com/castiarenas-coder/mi-gym/releases/latest) y bajá **Mi-Gym-Setup-x.y.z.exe**.
+1. Entrá a [Releases](https://github.com/castiarenas-coder/mi-gym/releases/latest) y bajá **Rumbo-Fit-Setup-x.y.z.exe**.
 2. Hacé doble clic en el archivo y seguí los pasos (son pocos). No pide permisos de administrador.
-3. Al terminar, tocá **Abrir Mi Gym**. Después lo encontrás en el menú Inicio (y en el Escritorio, si lo tildaste).
+3. Al terminar, tocá **Abrir Rumbo Fit**. Después lo encontrás en el menú Inicio (y en el Escritorio, si lo tildaste).
 
 El catálogo de 876 ejercicios con sus fotos ya viene adentro: **no necesita internet** para funcionar.
 
@@ -31,8 +31,8 @@ El catálogo de 876 ejercicios con sus fotos ya viene adentro: **no necesita int
 
 - **Dónde quedan tus datos:** en `%APPDATA%\Mi Gym` (pegá eso en la barra del Explorador de archivos). Ahí están la base, tus fotos/GIF y los respaldos.
 - **Cómo actualizar:** en **Ajustes → Acerca de** la app avisa cuando hay una versión nueva. Bajá el instalador nuevo y ejecutalo: se instala encima y **no toca tus datos**.
-- **Cómo cerrarlo:** **Ajustes → Cerrar Mi Gym**. Si solo cerrás la ventana, el programa sigue en segundo plano (casi no consume) y se abre más rápido la próxima vez.
-- **Cómo desinstalar:** Configuración de Windows → Aplicaciones → Mi Gym. Tus datos **no se borran**; si ya no los querés, borrá la carpeta `%APPDATA%\Mi Gym`.
+- **Cómo cerrarlo:** **Ajustes → Cerrar Rumbo Fit**. Si solo cerrás la ventana, el programa sigue en segundo plano (casi no consume) y se abre más rápido la próxima vez.
+- **Cómo desinstalar:** Configuración de Windows → Aplicaciones → Rumbo Fit. Tus datos **no se borran**; si ya no los querés, borrá la carpeta `%APPDATA%\Mi Gym`.
 
 ### Armar el instalador (para quien desarrolla)
 
@@ -46,9 +46,9 @@ Compila la interfaz, convierte el catálogo (fotos a WebP de hasta 480 px, unos 
 
 ## Descargar e instalar (Android)
 
-Mi Gym corre **entero dentro del celular**: no necesita una PC, wifi ni internet. El catálogo de 876 ejercicios con sus fotos ya viene en la app.
+Rumbo Fit corre **entero dentro del celular**: no necesita una PC, wifi ni internet. El catálogo de 876 ejercicios con sus fotos ya viene en la app.
 
-1. Desde el celular, entrá a [Releases](https://github.com/castiarenas-coder/mi-gym/releases/latest) y bajá el archivo **Mi-Gym-x.y.z-arm64.apk**. Es el que sirve para casi todos los celulares de los últimos años; si Android dice que no es compatible, bajá el **-arm32.apk**.
+1. Desde el celular, entrá a [Releases](https://github.com/castiarenas-coder/mi-gym/releases/latest) y bajá el archivo **Rumbo-Fit-x.y.z-arm64.apk**. Es el que sirve para casi todos los celulares de los últimos años; si Android dice que no es compatible, bajá el **-arm32.apk**.
 2. Abrí el archivo bajado. Android te va a avisar que tu navegador no puede instalar apps: tocá **Configuración** y activá **Permitir de esta fuente** (o "Instalar apps desconocidas") para el navegador con el que lo bajaste. Volvé atrás.
 3. Tocá **Instalar** y después **Abrir**. Si Play Protect pregunta, elegí **Instalar de todas formas** (la app todavía no está en Google Play).
 
@@ -101,11 +101,11 @@ Puerto distinto: variable `MI_GYM_PORT`.
 npm run acceso-directo
 ```
 
-Crea el ícono **Mi Gym** en tu Escritorio. Al abrirlo levanta el servidor sin dejar ninguna consola abierta (si hace falta, compila la interfaz antes) y abre la app en tu navegador. Si movés la carpeta del proyecto, corré el comando de nuevo. Para quitarlo: `npm run acceso-directo -- --quitar`. El registro del servidor queda en `data/server.log`.
+Crea el ícono **Rumbo Fit** en tu Escritorio. Al abrirlo levanta el servidor sin dejar ninguna consola abierta (si hace falta, compila la interfaz antes) y abre la app en tu navegador. Si movés la carpeta del proyecto, corré el comando de nuevo. Para quitarlo: `npm run acceso-directo -- --quitar`. El registro del servidor queda en `data/server.log`.
 
 ## Personas y entrenar en grupo
 
-Mi Gym sirve para toda la casa. Cada **persona** tiene lo suyo, separado como los perfiles de una app de series:
+Rumbo Fit sirve para toda la casa. Cada **persona** tiene lo suyo, separado como los perfiles de una app de series:
 
 - Rutinas, entrenamientos, historial, récords, medidas, perfil (altura, objetivo) y ejercicios favoritos.
 - Lo único compartido es el catálogo de ejercicios y las fotos/GIF que subas a un ejercicio, y los ajustes de la app.
@@ -151,7 +151,7 @@ Protección contra pérdidas, de menos a más segura:
 
 ## Donaciones
 
-Mi Gym es gratis y de código abierto. Si te sirve y querés apoyar el proyecto, podés donar lo que quieras:
+Rumbo Fit es gratis y de código abierto. Si te sirve y querés apoyar el proyecto, podés donar lo que quieras:
 
 - **Mercado Pago** (Argentina): alias **`gabycasti822.mp`**
 - **PayPal**: [Donar con PayPal](https://www.paypal.com/donate/?hosted_button_id=6G237RH4W2GRQ)
@@ -160,4 +160,4 @@ Mi Gym es gratis y de código abierto. Si te sirve y querés apoyar el proyecto,
 
 ## Licencia
 
-Mi Gym se distribuye bajo licencia MIT: ver [LICENSE](LICENSE). Los datos, imágenes, tipografías y proyectos que inspiraron esta app tienen sus propias licencias, detalladas en [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Rumbo Fit se distribuye bajo licencia MIT: ver [LICENSE](LICENSE). Los datos, imágenes, tipografías y proyectos que inspiraron esta app tienen sus propias licencias, detalladas en [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

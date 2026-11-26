@@ -84,11 +84,11 @@ describe('página Ajustes', () => {
     expect(await screen.findByText('Datos importados.')).toBeInTheDocument()
   })
 
-  it('rechaza un archivo que no es de Mi Gym', async () => {
+  it('rechaza un archivo que no es de Rumbo Fit', async () => {
     api()
     verApp('/ajustes')
     await userEvent.upload(await screen.findByLabelText('Archivo para importar'), new File(['{"hola":1}'], 'otro.json', { type: 'application/json' }))
-    expect(await screen.findByText('Ese archivo no es un respaldo de Mi Gym.')).toBeInTheDocument()
+    expect(await screen.findByText('Ese archivo no es un respaldo de Rumbo Fit.')).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
@@ -106,12 +106,12 @@ describe('página Ajustes', () => {
     expect(screen.getByRole('img', { name: /Código QR/ })).toBeInTheDocument()
   })
 
-  it('en Android no muestra "Abrir en el celular" ni "Cerrar Mi Gym" y habla de "este celular"', async () => {
+  it('en Android no muestra "Abrir en el celular" ni "Cerrar Rumbo Fit" y habla de "este celular"', async () => {
     api({ ...INFO, plataforma: 'android', apagable: true })
     verApp('/ajustes')
     await screen.findByText(/versión 0\.1\.0/)
     expect(screen.queryByRole('region', { name: 'Abrir en el celular' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Cerrar Mi Gym/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Cerrar Rumbo Fit/ })).not.toBeInTheDocument()
     expect(screen.getByText(/Todo se guarda en este celular/)).toBeInTheDocument()
     expect(screen.queryByText(/otra PC/)).not.toBeInTheDocument()
   })
@@ -148,21 +148,21 @@ describe('página Ajustes', () => {
     expect(screen.queryByText(/Hay una versión nueva/)).not.toBeInTheDocument()
   })
 
-  it('"Cerrar Mi Gym" solo aparece en la versión instalada y pide confirmación', async () => {
+  it('"Cerrar Rumbo Fit" solo aparece en la versión instalada y pide confirmación', async () => {
     api()
     const { unmount } = verApp('/ajustes')
     await screen.findByText(/versión 0\.1\.0/)
-    expect(screen.queryByRole('button', { name: /Cerrar Mi Gym/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Cerrar Rumbo Fit/ })).not.toBeInTheDocument()
     unmount()
 
     const { llamadas } = api({ ...INFO, apagable: true })
     verApp('/ajustes')
-    await userEvent.click(await screen.findByRole('button', { name: /Cerrar Mi Gym/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /Cerrar Rumbo Fit/ }))
     const dialogo = await screen.findByRole('dialog')
     expect(llamadas.some(l => l.ruta === '/api/apagar')).toBe(false)
     await userEvent.click(within(dialogo).getByRole('button', { name: 'Cerrar' }))
     await waitFor(() => expect(llamadas.some(l => l.metodo === 'POST' && l.ruta === '/api/apagar')).toBe(true))
-    expect(await screen.findByText(/Mi Gym se cerró/)).toBeInTheDocument()
+    expect(await screen.findByText(/Rumbo Fit se cerró/)).toBeInTheDocument()
   })
 
   it('Apariencia ofrece tema y acentos, y elegir Claro lo aplica y lo guarda', async () => {

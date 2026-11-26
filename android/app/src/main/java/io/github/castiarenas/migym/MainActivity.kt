@@ -88,7 +88,7 @@ class MainActivity : ComponentActivity() {
 
                 override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
                     // El servidor local se cayó después de cargar: pantalla de error con Reintentar.
-                    if (request.isForMainFrame) showError("Mi Gym no responde (${error.description})")
+                    if (request.isForMainFrame) showError("Rumbo Fit no responde (${error.description})")
                 }
             }
             webChromeClient = object : WebChromeClient() {
@@ -110,7 +110,7 @@ class MainActivity : ComponentActivity() {
             visibility = View.INVISIBLE
         }
         splash = TextView(this).apply {
-            text = "Cargando Mi Gym…"
+            text = "Cargando Rumbo Fit…"
             setTextColor(Color.WHITE)
             textSize = 20f
             gravity = Gravity.CENTER
@@ -149,7 +149,7 @@ class MainActivity : ComponentActivity() {
             val t0 = System.currentTimeMillis()
             while (alive) {
                 NodeRunner.failure?.let { f ->
-                    runOnUiThread { showError("No se pudo iniciar Mi Gym\n$f") }
+                    runOnUiThread { showError("No se pudo iniciar Rumbo Fit\n$f") }
                     return@Thread
                 }
                 if (!shown && healthy()) {
@@ -157,7 +157,7 @@ class MainActivity : ComponentActivity() {
                     runOnUiThread { showApp() }
                 }
                 if (!shown && System.currentTimeMillis() - t0 > 90_000) {
-                    runOnUiThread { splash.text = "Mi Gym tarda en arrancar…\nSi sigue así, cerrá la app y volvé a abrirla." }
+                    runOnUiThread { splash.text = "Rumbo Fit tarda en arrancar…\nSi sigue así, cerrá la app y volvé a abrirla." }
                 }
                 Thread.sleep(if (shown) 2000 else 500)
             }

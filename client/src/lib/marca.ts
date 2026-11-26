@@ -1,1 +1,1 @@
-export const NOMBRE_APP = 'Mi Gym';
+export const NOMBRE_APP = 'Rumbo Fit';
