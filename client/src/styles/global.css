@@ -30,17 +30,19 @@ button { font: inherit; color: inherit; cursor: pointer; }
 :focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
 
 .app { min-height: 100%; display: flex; flex-direction: column; }
+/* Celular: el contenedor lateral no genera caja; la barra superior y la inferior se posicionan solas. */
+.lateral { display: contents; }
 .header {
   position: sticky; top: 0; z-index: 10;
   height: var(--alto-header);
-  display: flex; align-items: center; gap: 10px;
-  padding: 0 var(--espacio);
+  display: flex; align-items: center; gap: 4px;
+  padding: env(safe-area-inset-top) var(--espacio) 0;
   background: color-mix(in srgb, var(--fondo) 88%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--borde);
 }
-.header__marca { font-family: var(--fuente-titulo); font-stretch: 75%; font-weight: 800; text-transform: uppercase; font-size: 1.2rem; }
-.header__marca span { color: var(--acento); }
+.header .marca { margin-right: auto; font-size: 1.1rem; }
+.header__persona, .header__ajustes { width: var(--toque); height: var(--toque); margin-left: 0; }
 .contenido {
   flex: 1; width: 100%; max-width: var(--ancho-max); margin: 0 auto;
   padding: var(--espacio) var(--espacio) calc(var(--alto-nav) + var(--espacio) + env(safe-area-inset-bottom));
@@ -64,19 +66,37 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .nav__item {
   flex: 1; max-width: 140px; min-height: var(--toque);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  font-size: 0.72rem; font-weight: 600; color: var(--texto-suave);
+  font-size: 0.75rem; font-weight: 600; color: var(--texto-suave);
 }
+.nav__item:hover { color: var(--texto); }
 .nav__item[aria-current='page'] { color: var(--acento); }
 
-/* En pantallas grandes la barra pasa a ser lateral. */
+/* PC: barra lateral con la marca arriba, las secciones en el medio y persona/ajustes abajo (sin barra superior). */
 @media (min-width: 900px) {
-  .app { padding-left: 96px; }
-  .nav {
-    top: 0; right: auto; width: 96px; height: auto; flex-direction: column;
-    justify-content: flex-start; gap: 4px; padding: calc(var(--alto-header) + 8px) 0 0;
-    border-top: 0; border-right: 1px solid var(--borde);
+  :root { --ancho-lateral: 232px; }
+  .app { padding-left: var(--ancho-lateral); }
+  .lateral {
+    display: flex; flex-direction: column; gap: 4px;
+    position: fixed; top: 0; bottom: 0; left: 0; z-index: 20; width: var(--ancho-lateral);
+    padding: calc(var(--espacio) * 1.25) 12px calc(var(--espacio) + env(safe-area-inset-bottom));
+    background: var(--superficie); border-right: 1px solid var(--borde);
+    overflow-y: auto;
   }
-  .nav__item { flex: none; max-width: none; height: 72px; }
+  .header { display: contents; }
+  .header .marca { order: 0; margin: 0 0 var(--espacio); padding: 0 12px; font-size: 1.25rem; }
+  .nav {
+    order: 1; position: static; height: auto; padding: 0; background: none; border: 0;
+    flex-direction: column; justify-content: flex-start; gap: 4px;
+  }
+  .nav__item {
+    flex: none; max-width: none; min-height: var(--toque);
+    flex-direction: row; justify-content: flex-start; gap: 12px; padding: 0 12px;
+    border-radius: var(--radio-s); font-size: 0.95rem;
+  }
+  .nav__item:hover { background: var(--superficie-2); }
+  .nav__item[aria-current='page'] { background: color-mix(in srgb, var(--acento) 14%, transparent); }
+  .header__persona { order: 2; margin-top: auto; width: 100%; justify-content: start; padding: 0 12px; border-radius: var(--radio-s); }
+  .header__ajustes { order: 3; width: 100%; justify-content: start; padding: 0 12px; border-radius: var(--radio-s); }
   .contenido { padding-bottom: var(--espacio); }
 }
 

@@ -46,7 +46,7 @@
 /* ---- Sesión en curso ---- */
 .entrenando { padding-bottom: 96px; }
 .sesion-cab { display: grid; gap: 14px; }
-@media (min-width: 900px) { .sesion-cab { position: sticky; top: calc(var(--alto-header) + 6px); z-index: 5; box-shadow: var(--sombra); } }
+@media (min-width: 900px) { .sesion-cab { position: sticky; top: 6px; z-index: 5; box-shadow: var(--sombra); } }
 .sesion-cab h1 { margin: 0; font-size: 1.25rem; overflow-wrap: anywhere; }
 .sesion-cab__sup { margin: 0 0 4px; color: var(--acento); font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; font-size: 0.74rem; }
 .sesion-cab__datos { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
