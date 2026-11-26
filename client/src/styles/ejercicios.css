@@ -138,19 +138,9 @@ select.control { appearance: none; padding-right: 36px; background-image: linear
 .opcion span { color: var(--texto-suave); font-size: 0.85rem; }
 
 /* ---- Inicio ---- */
-.portada { position: relative; overflow: hidden; padding: 28px 22px; border-radius: var(--radio-l); border: 1px solid var(--borde); background: radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--acento) 22%, transparent), transparent 55%), linear-gradient(160deg, var(--superficie-2), var(--superficie)); }
-.portada__sup { margin: 0 0 6px; color: var(--acento); font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.78rem; }
-.portada__titulo { font-size: clamp(1.8rem, 6vw, 2.8rem); margin-bottom: 8px; }
-.portada__titulo span { color: var(--acento); }
-.portada__texto { margin: 0; color: var(--texto-suave); max-width: 46ch; }
-.accesos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.acceso { display: grid; justify-items: center; align-content: center; gap: 8px; min-height: 92px; padding: 12px 6px; text-align: center; font-weight: 800; font-size: 0.85rem; background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radio-m); transition: border-color 0.15s ease, transform 0.1s ease; }
-.acceso svg { color: var(--acento); }
-.acceso:hover { border-color: var(--acento); }
-.acceso:active { transform: scale(0.97); }
 .seccion { display: grid; gap: 12px; }
 .seccion__titulo { margin: 0; font-size: 1.05rem; }
 
 @media (prefers-reduced-motion: reduce) {
-  .tarjeta-ej, .boton, .favorito, .acceso { transition: none; }
+  .tarjeta-ej, .boton, .favorito { transition: none; }
 }

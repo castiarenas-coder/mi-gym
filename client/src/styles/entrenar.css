@@ -1,7 +1,5 @@
 /* Entrenar, historial, progreso y gráficos. */
 
-.accesos { grid-template-columns: repeat(2, 1fr); }
-@media (min-width: 560px) { .accesos { grid-template-columns: repeat(4, 1fr); } }
 
 .boton--grande { min-height: 60px; font-size: 1.05rem; }
 .boton--peligro-texto { color: var(--peligro); justify-self: center; }
@@ -106,11 +104,18 @@
 .series-historial__n { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--acento); color: var(--acento-texto); font-size: 0.75rem; font-weight: 800; }
 
 /* ---- Inicio ---- */
-.hoy { display: grid; gap: 10px; }
-.hoy__sup { margin: 0; color: var(--acento); font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; font-size: 0.74rem; }
-.hoy__titulo { margin: 0; font-family: var(--fuente-titulo); font-size: 1.2rem; font-weight: 700; }
-.hoy__datos { margin: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--texto-suave); font-weight: 700; }
-.hoy__ultimo { margin: 0; color: var(--texto-suave); font-size: 0.92rem; }
+.inicio { gap: 16px; }
+.inicio__saludo { display: grid; gap: 2px; min-width: 0; }
+.inicio__titulo { margin: 0; font-size: clamp(1.5rem, 5vw, 2rem); overflow-wrap: anywhere; }
+.inicio__fecha { margin: 0; color: var(--texto-suave); text-transform: capitalize; }
+.inicio__hoy, .inicio__ultimo { display: grid; gap: 12px; }
+.inicio__sup { margin: 0; color: var(--texto-suave); font-family: var(--fuente-texto); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.78rem; }
+.inicio__sesion { margin: 0; font-family: var(--fuente-titulo); font-size: 1.2rem; font-weight: 700; overflow-wrap: anywhere; }
+.inicio__sesion .inicio__fecha { font-family: var(--fuente-texto); font-size: 0.92rem; font-weight: 400; text-transform: none; }
+.inicio__rutinas { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.inicio__rutina { min-width: 0; max-width: 100%; }
+.inicio__rutina span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inicio__metricas { display: flex; flex-wrap: wrap; gap: 8px 32px; }
 
 /* ---- Progreso ---- */
 .tabs { padding-bottom: 4px; }
