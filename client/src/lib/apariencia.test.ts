@@ -44,8 +44,8 @@ describe('apariencia', () => {
     const raiz = document.createElement('div')
     aplicarApariencia({ tema: 'claro', acento: ACENTOS[1].id }, raiz)
     expect(raiz.dataset.tema).toBe('claro')
-    expect(raiz.style.getPropertyValue('--acento')).toBe(ACENTOS[1].color)
-    expect(raiz.style.getPropertyValue('--acento-texto')).toBe(ACENTOS[1].texto)
+    expect(raiz.style.getPropertyValue('--acento')).toBe(ACENTOS[1].colorClaro)
+    expect(raiz.style.getPropertyValue('--acento-texto')).toBe(ACENTOS[1].textoClaro)
   })
 
   it('con tema sistema usa la preferencia recibida', () => {
@@ -56,7 +56,27 @@ describe('apariencia', () => {
 
   it('hay 6 acentos con texto legible (AA) sobre su color', () => {
     expect(ACENTOS).toHaveLength(6)
-    expect(ACENTOS[0]).toEqual({ id: 'lima', nombre: 'Lima', color: '#c6ff3d', texto: '#0b0d10' })
+    expect(ACENTOS[0]).toMatchObject({ id: 'lima', nombre: 'Lima', color: '#c6ff3d', texto: '#0b0d10' })
     for (const a of ACENTOS) expect(contraste(a.color, a.texto)).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('usa la variante del tema efectivo: clara en claro, original en oscuro', () => {
+    const raiz = document.createElement('div')
+    aplicarApariencia({ tema: 'claro', acento: 'lima' }, raiz)
+    expect(raiz.style.getPropertyValue('--acento')).toBe(ACENTOS[0].colorClaro)
+    expect(raiz.style.getPropertyValue('--acento-texto')).toBe(ACENTOS[0].textoClaro)
+    aplicarApariencia({ tema: 'oscuro', acento: 'lima' }, raiz)
+    expect(raiz.style.getPropertyValue('--acento')).toBe(ACENTOS[0].color)
+    aplicarApariencia({ tema: 'sistema', acento: 'lima' }, raiz, false)
+    expect(raiz.style.getPropertyValue('--acento')).toBe(ACENTOS[0].colorClaro)
+    aplicarApariencia({ tema: 'sistema', acento: 'lima' }, raiz, true)
+    expect(raiz.style.getPropertyValue('--acento')).toBe(ACENTOS[0].color)
+  })
+
+  it('las variantes claras cumplen AA: color como texto sobre el fondo claro y texto sobre color', () => {
+    for (const a of ACENTOS) {
+      expect(contraste(a.colorClaro, '#f5f5f1')).toBeGreaterThanOrEqual(4.5)
+      expect(contraste(a.colorClaro, a.textoClaro)).toBeGreaterThanOrEqual(4.5)
+    }
   })
 })

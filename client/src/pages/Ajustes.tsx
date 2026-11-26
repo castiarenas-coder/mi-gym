@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { ACENTOS, aplicarApariencia, guardarApariencia, leerApariencia, type Apariencia, type Tema } from '../lib/apariencia'
+import { ACENTOS, aplicarApariencia, guardarApariencia, leerApariencia, prefiereOscuro, temaEfectivo, type Apariencia, type Tema } from '../lib/apariencia'
 import { Copy, Download, Heart, Pencil, Plus, Power, RotateCcw, Save, Trash2, Upload } from 'lucide-react'
 import { useBorrarPersona, useCrearPersona, useEditarPersona, type Persona } from '../api/personas'
 import { usePersonaActiva } from '../app/PersonaContext'
@@ -62,6 +62,7 @@ function SeccionApariencia() {
     guardarApariencia(nueva)
     aplicarApariencia(nueva)
   }
+  const claro = temaEfectivo(apariencia.tema, prefiereOscuro()) === 'claro'
   return (
     <section className="tarjeta bloque" aria-labelledby="aj-apariencia">
       <h2 id="aj-apariencia" className="bloque__titulo">Apariencia</h2>
@@ -78,7 +79,7 @@ function SeccionApariencia() {
         {ACENTOS.map(a => (
           <label key={a.id} className="opcion">
             <input type="radio" name="acento" checked={apariencia.acento === a.id} onChange={() => cambiar({ acento: a.id })} aria-label={`Acento ${a.nombre}`} />
-            <span className="opcion__muestra" style={{ background: a.color }} aria-hidden="true" />
+            <span className="opcion__muestra" style={{ background: claro ? a.colorClaro : a.color }} aria-hidden="true" />
             <span>{a.nombre}</span>
           </label>
         ))}
@@ -188,8 +189,9 @@ export function Ajustes() {
 
       <SeccionPersonas />
 
+      <h2 className="grupo__titulo">Respaldo</h2>
       <section className="tarjeta bloque" aria-labelledby="aj-datos">
-        <h2 id="aj-datos" className="bloque__titulo">Tus datos</h2>
+        <h3 id="aj-datos" className="bloque__titulo">Tus datos</h3>
         <p className="bloque__ayuda">Todo se guarda en {enAndroid ? 'este celular' : 'esta PC'}, en un solo archivo. No sale a internet.</p>
         {i && (
           <dl className="datos">
@@ -218,7 +220,7 @@ export function Ajustes() {
       </section>
 
       <section className="tarjeta bloque" aria-labelledby="aj-export">
-        <h2 id="aj-export" className="bloque__titulo">Exportar / importar</h2>
+        <h3 id="aj-export" className="bloque__titulo">Exportar / importar</h3>
         <p className="bloque__ayuda">Un archivo con las personas y sus rutinas, entrenamientos, medidas y favoritos. {enAndroid ? 'Sirve para llevarlos a otro celular o guardarlos en la nube. Si desinstalás Mi Gym, los datos del celular se borran: guardá un archivo antes.' : 'Sirve para llevarlos a otra PC o guardarlos en la nube.'}</p>
         <div className="acciones">
           <a className="boton boton--secundario" href="/api/respaldo/exportar" download><Download size={18} aria-hidden /> Exportar mis datos</a>
@@ -229,7 +231,7 @@ export function Ajustes() {
 
       {!enAndroid && (
         <section className="tarjeta bloque" aria-labelledby="aj-celu">
-          <h2 id="aj-celu" className="bloque__titulo">Abrir en el celular</h2>
+          <h3 id="aj-celu" className="bloque__titulo">Abrir en el celular</h3>
           {i?.lan ? (
             i.urls.length > 0 ? (
               <>

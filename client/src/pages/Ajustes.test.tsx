@@ -177,7 +177,16 @@ describe('página Ajustes', () => {
     expect(document.documentElement.dataset.tema).toBe('claro')
     expect(JSON.parse(localStorage.getItem('mi-gym:apariencia')!).tema).toBe('claro')
     await userEvent.click(within(bloque).getByRole('radio', { name: 'Acento Cian' }))
-    expect(document.documentElement.style.getPropertyValue('--acento')).toBe('#22d3ee')
+    expect(document.documentElement.style.getPropertyValue('--acento')).toBe('#0e7490')
     expect(JSON.parse(localStorage.getItem('mi-gym:apariencia')!).acento).toBe('cian')
+  })
+
+  it('agrupa Ajustes en secciones visibles: Apariencia, Personas, Respaldo y Acerca de', async () => {
+    api()
+    verApp('/ajustes')
+    await screen.findByRole('region', { name: 'Apariencia' })
+    for (const n of ['Apariencia', 'Personas', 'Respaldo', 'Acerca de']) {
+      expect(screen.getByRole('heading', { level: 2, name: n })).toBeInTheDocument()
+    }
   })
 })
