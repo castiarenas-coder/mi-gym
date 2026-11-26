@@ -7,7 +7,9 @@ export function TarjetaEjercicio({ ejercicio: e }: { ejercicio: EjercicioResumen
   return (
     <article className="tarjeta-ej">
       <Link to={`/ejercicios/${encodeURIComponent(e.id)}`} className="tarjeta-ej__enlace">
-        <AnimacionEjercicio ejercicio={e} miniatura className="tarjeta-ej__anim" />
+        <div className="tarjeta-ej__foto">
+          <AnimacionEjercicio ejercicio={e} miniatura className="tarjeta-ej__anim" />
+        </div>
         <div className="tarjeta-ej__texto">
           <h3 className="tarjeta-ej__nombre">{e.nombre}</h3>
           <div className="insignias">

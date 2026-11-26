@@ -4,6 +4,7 @@ import { Heart, Search, X } from 'lucide-react'
 import { useFiltros, useListaEjercicios } from '../api/ejercicios'
 import type { ConsultaEjercicios, ValorFiltro } from '../api/tipos'
 import { TarjetaEjercicio } from '../components/TarjetaEjercicio'
+import { CabeceraPagina } from '../components/ui/CabeceraPagina'
 import { useRetardo } from '../lib/useRetardo'
 
 function SelectorFiltro({ etiqueta, valor, opciones, onChange }: { etiqueta: string; valor: string; opciones: ValorFiltro[]; onChange: (v: string) => void }) {
@@ -50,8 +51,9 @@ export function Ejercicios() {
 
   return (
     <div className="pagina">
-      <h1>Ejercicios</h1>
+      <CabeceraPagina titulo="Ejercicios" />
 
+      <div className="buscador-fijo">
       <div className="busqueda">
         <Search size={20} aria-hidden />
         <input
@@ -89,6 +91,7 @@ export function Ejercicios() {
             {m.valor}
           </button>
         ))}
+      </div>
       </div>
 
       <div className="filtros-fila">

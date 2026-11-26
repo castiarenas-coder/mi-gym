@@ -1,11 +1,15 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, ClipboardPlus, Link2, Trash2, Upload } from 'lucide-react'
+import { useHistorialEjercicio } from '../api/entrenar'
 import { useEjercicio, useLinkMedia, useQuitarMedia, useSubirMedia } from '../api/ejercicios'
 import type { EjercicioDetalle } from '../api/tipos'
 import { AnimacionEjercicio } from '../components/AnimacionEjercicio'
 import { BotonFavorito } from '../components/BotonFavorito'
 import { SelectorRutina } from '../components/SelectorRutina'
+import { CabeceraPagina } from '../components/ui/CabeceraPagina'
+import { Metrica } from '../components/ui/Metrica'
+import { fechaCorta, kg } from '../lib/formato'
 import { tipoDeMedia } from '../lib/media'
 
 const MAX_MB = 30
@@ -81,6 +85,22 @@ function MediaPropia({ ejercicio }: { ejercicio: EjercicioDetalle }) {
   )
 }
 
+/** Mejor marca e historial: solo aparece si ya entrenaste este ejercicio. */
+function MarcasEjercicio({ id }: { id: string }) {
+  const h = useHistorialEjercicio(id).data
+  if (!h || !h.total_sesiones) return null
+  return (
+    <section className="bloque" aria-labelledby="mis-marcas">
+      <h2 id="mis-marcas" className="bloque__titulo">Tu historial</h2>
+      <div className="marcas">
+        {h.mejor_peso && <Metrica valor={kg(h.mejor_peso.peso_kg)} unidad="kg" etiqueta={`Mejor marca · ${h.mejor_peso.reps ?? '–'} reps · ${fechaCorta(h.mejor_peso.fecha)}`} />}
+        {h.mejor_e1rm && <Metrica valor={kg(h.mejor_e1rm.valor)} unidad="kg" etiqueta="1RM estimado" />}
+        <Metrica valor={h.total_sesiones} etiqueta={h.total_sesiones === 1 ? 'Entrenamiento' : 'Entrenamientos'} />
+      </div>
+    </section>
+  )
+}
+
 export function Ejercicio() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -105,18 +125,14 @@ export function Ejercicio() {
         ? <button type="button" className="volver" onClick={() => navigate(-1)}><ArrowLeft size={18} aria-hidden /> Volver</button>
         : <Link to="/ejercicios" className="volver"><ArrowLeft size={18} aria-hidden /> Ejercicios</Link>}
 
+      <CabeceraPagina titulo={e.nombre} accion={<BotonFavorito id={e.id} favorito={e.favorito} className="favorito--grande" />} />
+
       <div className="ficha__cabecera">
         <div className="ficha__anim">
           <AnimacionEjercicio ejercicio={e} className="anim--grande" />
         </div>
         <div className="ficha__info">
-          <div className="ficha__titulo">
-            <div>
-              <h1>{e.nombre}</h1>
-              {e.nombre_en && e.nombre_en !== e.nombre && <p className="ficha__ingles">{e.nombre_en}</p>}
-            </div>
-            <BotonFavorito id={e.id} favorito={e.favorito} className="favorito--grande" />
-          </div>
+          {e.nombre_en && e.nombre_en !== e.nombre && <p className="ficha__ingles">{e.nombre_en}</p>}
 
           <dl className="datos">
             <Dato etiqueta="Músculo principal" valor={e.musculo_principal} />
@@ -139,6 +155,8 @@ export function Ejercicio() {
           </button>
         </div>
       </div>
+
+      <MarcasEjercicio id={e.id} />
 
       <section className="tarjeta bloque" aria-labelledby="como-hacerlo">
         <h2 id="como-hacerlo" className="bloque__titulo">Cómo hacerlo</h2>
