@@ -1,16 +1,41 @@
-/* Tokens de diseño "oscuro deportivo". Todo color y medida sale de acá. */
-:root {
-  --fondo: #0b0d10;
-  --superficie: #15181d;
-  --superficie-2: #1d2128;
-  --borde: #262b33;
-  --texto: #f3f5f7;
-  --texto-suave: #98a1ad;
+/* Tokens de diseño. Todo color y medida sale de acá.
+   El tema se elige con data-tema en <html>; sin atributo se ve el oscuro. */
+:root, [data-tema='oscuro'] {
+  color-scheme: dark;
+  --fondo: #0a0c10;
+  --superficie: #14171d;
+  --superficie-2: #1c2028;
+  --borde: #2a2f39;
+  --texto: #f2f4f7;
+  --texto-suave: #9aa3b0;
   --acento: #c6ff3d;
-  --acento-texto: #0b0d10;
-  --acento-2: #ff7a1a;
-  --peligro: #ff4d4d;
+  --acento-texto: #0a0c10;
+  --record: #ff8a2b;
   --ok: #3ddc84;
+  --aviso: #ffc233;
+  --peligro: #ff5c5c;
+  --sombra: none;
+}
+
+[data-tema='claro'] {
+  color-scheme: light;
+  --fondo: #f5f5f1;
+  --superficie: #ffffff;
+  --superficie-2: #eeeee9;
+  --borde: #d8d9d4;
+  --texto: #14171c;
+  --texto-suave: #586170;
+  --acento: #4d7c0f;
+  --acento-texto: #ffffff;
+  --record: #c2410c;
+  --ok: #15803d;
+  --aviso: #92400e;
+  --peligro: #c62828;
+  --sombra: 0 1px 2px rgb(20 23 28 / 8%), 0 4px 12px rgb(20 23 28 / 6%);
+}
+
+:root {
+  --acento-2: var(--record); /* alias: el naranja ahora se llama --record */
 
   --radio-s: 10px;
   --radio-m: 16px;
@@ -21,7 +46,12 @@
   --alto-header: 56px;
   --ancho-max: 1100px;
 
-  --fuente-titulo: 'Unbounded Variable', 'Unbounded', system-ui, sans-serif;
+  --fuente-titulo: 'Archivo Variable', 'Archivo', 'Arial Narrow', system-ui, sans-serif;
   --fuente-texto: 'Manrope Variable', 'Manrope', system-ui, sans-serif;
-  --sombra: 0 8px 24px rgb(0 0 0 / 45%);
+
+  /* Escala tipográfica */
+  --t-display: 2.75rem;
+  --t-titulo: 1.75rem;
+  --t-subtitulo: 1.2rem;
+  --t-chico: 0.8rem;
 }
