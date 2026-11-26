@@ -45,3 +45,15 @@
   font-size: var(--t-titulo); line-height: 1.1;
 }
 .cabecera-pagina__accion { display: flex; align-items: center; gap: 8px; flex: none; }
+
+.franja { display: flex; flex-direction: column; gap: 8px; }
+.franja__dias { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin: 0; padding: 0; list-style: none; }
+.franja__dia {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-height: var(--toque); border-radius: var(--radio-m);
+  background: var(--superficie-2); color: var(--texto-suave); border: 2px solid transparent;
+}
+.franja__letra { font-weight: 700; font-size: var(--t-chico, 0.8rem); }
+.franja__dia--hecho { background: var(--acento); color: var(--acento-texto); }
+.franja__dia--hoy { border: 2px dashed var(--acento); color: var(--texto); }
+.franja__texto { margin: 0; color: var(--texto-suave); font-weight: 600; }
