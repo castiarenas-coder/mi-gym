@@ -7,3 +7,6 @@ backups/
 dist-catalogo/
 release/
 .cache/
+
+# Perfiles temporales de navegador (capturas)
+sitio/cdpprof*/
