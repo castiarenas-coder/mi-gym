@@ -1,6 +1,6 @@
 {
   "name": "mi-gym",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Rumbo Fit: ejercicios, rutinas y progreso, todo en español y guardado en tu PC.",
   "type": "module",
