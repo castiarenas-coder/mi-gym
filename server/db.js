@@ -292,6 +292,14 @@ export const MIGRACIONES = [
         clave TEXT PRIMARY KEY,
         valor TEXT
       );
+      -- Personas muertas (borradas aquí o en otro equipo) y desde cuándo; sobrevive a la lápida y sirve para
+      -- decidir si un documento hijo que llega sin su persona se descarta o espera a que la persona reviva.
+      -- viva = 1: la persona revivió sobre un borrado de esa fecha (lo anterior a ella está muerto); viaja en su documento.
+      CREATE TABLE sync_muertas (
+        persona TEXT PRIMARY KEY,
+        fecha TEXT NOT NULL,
+        viva INTEGER NOT NULL DEFAULT 0
+      );
 
       ${TRIGGERS_DOCUMENTO.map(([t, tipo]) => `
       CREATE TRIGGER ${t}_uid AFTER INSERT ON ${t} WHEN NEW.uid IS NULL BEGIN
@@ -306,9 +314,26 @@ export const MIGRACIONES = [
       CREATE TRIGGER ${t}_recrea AFTER INSERT ON ${t} WHEN NEW.uid IS NOT NULL BEGIN
         DELETE FROM sync_borrados WHERE tipo = '${tipo}' AND clave = NEW.uid;
       END;
+      ${t === 'personas' ? `
+      -- Borrar una persona deja lápida de ella y de todo lo suyo con la misma fecha (una sola sentencia: mismo instante),
+      -- antes de que el borrado en cascada se lleve los hijos.
+      CREATE TRIGGER personas_baja BEFORE DELETE ON personas BEGIN
+        INSERT OR REPLACE INTO sync_borrados (tipo, clave, fecha)
+          SELECT k.tipo, k.clave, ${AHORA} FROM (
+            SELECT 'persona' AS tipo, OLD.uid AS clave
+            UNION ALL SELECT 'rutina', uid FROM rutinas WHERE persona_id = OLD.id
+            UNION ALL SELECT 'sesion', uid FROM sesiones WHERE persona_id = OLD.id
+            UNION ALL SELECT 'medida', OLD.uid || '|' || fecha FROM medidas WHERE persona_id = OLD.id
+            UNION ALL SELECT 'perfil', OLD.uid FROM perfil WHERE persona_id = OLD.id
+            UNION ALL SELECT 'favorito', OLD.uid || '|' || ejercicio_id FROM favoritos WHERE persona_id = OLD.id
+          ) k;
+        INSERT OR REPLACE INTO sync_muertas (persona, fecha)
+          SELECT clave, fecha FROM sync_borrados WHERE tipo = 'persona' AND clave = OLD.uid;
+      END;` : `
+      -- OR IGNORE: en un borrado en cascada la lápida ya la dejó la persona, con su fecha.
       CREATE TRIGGER ${t}_baja AFTER DELETE ON ${t} BEGIN
-        INSERT OR REPLACE INTO sync_borrados (tipo, clave, fecha) VALUES ('${tipo}', OLD.uid, ${AHORA});
-      END;`).join('\n')}
+        INSERT OR IGNORE INTO sync_borrados (tipo, clave, fecha) VALUES ('${tipo}', OLD.uid, ${AHORA});
+      END;`}`).join('\n')}
 
       ${TRIGGERS_NATURALES.map(([t, tipo, claveSql, where]) => `
       CREATE TRIGGER ${t}_alta AFTER INSERT ON ${t} WHEN NEW.actualizado IS NULL BEGIN
@@ -322,7 +347,7 @@ export const MIGRACIONES = [
       END;
       -- Si la persona ya no existe (borrado en cascada) no hay clave que registrar: su propia lápida cubre todo.
       CREATE TRIGGER ${t}_baja AFTER DELETE ON ${t} BEGIN
-        INSERT OR REPLACE INTO sync_borrados (tipo, clave, fecha)
+        INSERT OR IGNORE INTO sync_borrados (tipo, clave, fecha)
           SELECT '${tipo}', ${claveSql('OLD')}, ${AHORA} FROM personas p WHERE p.id = OLD.persona_id;
       END;`).join('\n')}
 

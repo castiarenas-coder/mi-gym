@@ -18,7 +18,10 @@ export function crearRemotoEnMemoria({ pagina = 1000 } = {}) {
         remoto.docsSubidos++;
         const k = `${d.tipo}|${d.clave}`;
         const previo = filas.get(k);
-        if (previo && previo.doc.actualizado >= d.actualizado) continue; // solo gana el más nuevo
+        // Solo gana el más nuevo; con la misma fecha gana el borrado (un vivo nunca pisa un borrado igual).
+        // La RPC de Supabase debe respetar exactamente esta regla.
+        if (previo && (previo.doc.actualizado > d.actualizado
+          || (previo.doc.actualizado === d.actualizado && (previo.doc.borrado || !d.borrado)))) continue;
         filas.set(k, { doc: structuredClone(d), servidor_en: ++contador });
       }
     },

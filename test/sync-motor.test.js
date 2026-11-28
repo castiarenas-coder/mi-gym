@@ -41,7 +41,7 @@ async function assertConvergidos(dbs, remoto) {
   for (const db of dbs) assert.deepEqual(vivosLocales(db), r);
   for (const db of dbs) {
     const res = await sincronizar(db, remoto, {});
-    assert.deepEqual(res, { subidos: 0, bajados: 0, enEspera: 0 });
+    assert.deepEqual(res, { subidos: 0, bajados: 0, enEspera: 0, rechazados: 0 });
   }
 }
 
@@ -275,12 +275,111 @@ test('el remoto en memoria conserva solo la versión más nueva (no resucita ni 
   const remoto = crearRemotoEnMemoria();
   const d = (actualizado, borrado = false) => ({ tipo: 'rutina', clave: 'x', actualizado, borrado, datos: borrado ? null : { v: actualizado } });
   await remoto.subir([d('2026-01-02T00:00:00.000Z')]);
-  await remoto.subir([d('2026-01-01T00:00:00.000Z'), d('2026-01-02T00:00:00.000Z', true)]);
+  await remoto.subir([d('2026-01-01T00:00:00.000Z')]); // más vieja: no pisa
   assert.equal(remoto.documentos()[0].actualizado, '2026-01-02T00:00:00.000Z');
   assert.equal(remoto.documentos()[0].borrado, false);
+  // Con la misma fecha gana el borrado, y un vivo nunca pisa un borrado igual.
+  await remoto.subir([d('2026-01-02T00:00:00.000Z', true)]);
+  assert.equal(remoto.documentos()[0].borrado, true);
+  await remoto.subir([d('2026-01-02T00:00:00.000Z')]);
+  assert.equal(remoto.documentos()[0].borrado, true);
   await remoto.subir([d('2026-01-03T00:00:00.000Z', true)]);
   const { docs, cursor } = await remoto.bajar(null);
   assert.equal(docs.length, 1);
   assert.equal(docs[0].borrado, true);
   assert.equal((await remoto.bajar(cursor)).docs.length, 0);
+});
+
+// ---------- cuarentena, degradados, cursor y topes ----------
+
+const docRutina = (persona, clave, nombre, actualizado) => ({
+  tipo: 'rutina', clave, actualizado, borrado: false,
+  datos: { persona, nombre, descripcion: '', dias_semana: '[]', dias: [] },
+});
+
+test('un documento que no se puede aplicar queda en cuarentena, no frena el resto y se reintenta si llega uno más nuevo', async (t) => {
+  const advertencias = [];
+  t.mock.method(console, 'warn', (m) => advertencias.push(m));
+  const [A, B, remoto] = [nuevaBase(), nuevaBase(), crearRemotoEnMemoria()];
+  agregarAna(A);
+  const uid = A.prepare("SELECT uid FROM personas WHERE nombre = 'Ana'").get().uid;
+  await sincronizar(A, remoto, {});
+  const malo = docRutina(uid, 'rutina-mala', null, '2030-01-01T00:00:00.000Z'); // nombre NOT NULL: falla al escribir
+  await remoto.subir([malo]);
+  const r1 = await sincronizar(B, remoto, {});
+  assert.equal(r1.rechazados, 1);
+  assert.ok(r1.bajados >= 4, 'el resto sí se aplicó');
+  assert.equal(advertencias.length, 1);
+  assert.equal(n(B, "SELECT COUNT(*) n FROM rutinas WHERE uid = 'rutina-mala'"), 0);
+  assert.ok(estado(B, 'cursor'), 'el cursor pasó de largo');
+  // Misma versión: no se reintenta ni vuelve a avisar.
+  await remoto.subir([{ ...docRutina(uid, 'otra', 'ok', '2030-01-01T00:00:00.000Z') }]);
+  const r2 = await sincronizar(B, remoto, {});
+  assert.equal(r2.rechazados, 1);
+  assert.equal(advertencias.length, 1);
+  // Una versión más nueva sí se reintenta y sale de la cuarentena.
+  await remoto.subir([docRutina(uid, 'rutina-mala', 'arreglada', '2030-01-02T00:00:00.000Z')]);
+  const r3 = await sincronizar(B, remoto, {});
+  assert.equal(r3.rechazados, 0);
+  assert.equal(n(B, "SELECT COUNT(*) n FROM rutinas WHERE uid = 'rutina-mala'"), 1);
+});
+
+test('la cuarentena guarda solo los últimos 100', async (t) => {
+  t.mock.method(console, 'warn', () => {});
+  const [A, B, remoto] = [nuevaBase(), nuevaBase(), crearRemotoEnMemoria()];
+  agregarAna(A);
+  const uid = A.prepare("SELECT uid FROM personas WHERE nombre = 'Ana'").get().uid;
+  await sincronizar(A, remoto, {});
+  for (let i = 0; i < 120; i++) await remoto.subir([docRutina(uid, `mala-${i}`, null, '2030-01-01T00:00:00.000Z')]);
+  const r = await sincronizar(B, remoto, {});
+  assert.equal(r.rechazados, 100);
+});
+
+test('un documento aplicado en versión degradada se sube y todos convergen (no es eco)', async () => {
+  const [A, B, remoto] = [nuevaBase(), nuevaBase(), crearRemotoEnMemoria()];
+  agregarAna(A);
+  await converger([A, B], remoto);
+  // B borra la rutina sin sincronizar; A edita después la sesión (que sigue apuntando a esa rutina).
+  B.exec('DELETE FROM rutinas WHERE nombre = \'R1\'');
+  esperar();
+  A.exec("UPDATE sesiones SET nota = 'editada' WHERE id = 20");
+  await sincronizar(A, remoto, {});
+  const rb = await sincronizar(B, remoto, {});
+  assert.ok(rb.subidos >= 1, 'la sesión degradada (sin rutina) se sube en la misma vuelta');
+  assert.equal(q(B, 'SELECT rutina_id FROM sesiones')[0].rutina_id, null);
+  await converger([A, B], remoto);
+  assert.equal(q(A, 'SELECT rutina_id, nota FROM sesiones')[0].rutina_id, null);
+  assert.equal(q(A, 'SELECT nota FROM sesiones')[0].nota, 'editada');
+  assert.equal(n(A, 'SELECT COUNT(*) n FROM rutinas'), 0);
+  await assertConvergidos([A, B], remoto);
+});
+
+test('un cambio de cursor en una página vacía se guarda', async () => {
+  const A = nuevaBase();
+  const remoto = { subir: async () => {}, bajar: async () => ({ docs: [], cursor: '000000000007' }) };
+  const r = await sincronizar(A, remoto, {});
+  assert.equal(estado(A, 'cursor'), '000000000007');
+  assert.equal(r.parcial, undefined);
+});
+
+test('si el remoto no termina nunca, la vuelta se corta y avisa parcial', async () => {
+  const A = nuevaBase();
+  let k = 0;
+  const remoto = {
+    subir: async () => {},
+    bajar: async () => ({ docs: [{ tipo: 'desconocido', clave: `x${k}`, actualizado: '2030', borrado: false, datos: {} }], cursor: String(++k).padStart(12, '0') }),
+  };
+  const r = await sincronizar(A, remoto, {});
+  assert.equal(r.parcial, true);
+  assert.equal(estado(A, 'cursor'), String(k).padStart(12, '0'));
+});
+
+test('la lista de espera tiene tope (se descartan las más viejas)', async (t) => {
+  t.mock.method(console, 'warn', () => {});
+  const A = nuevaBase();
+  const docs = Array.from({ length: 600 }, (_, i) => docRutina('persona-que-no-llega', `r${i}`, 'x', `2030-01-01T00:00:${String(i % 60).padStart(2, '0')}.${String(i).padStart(3, '0')}Z`));
+  const remoto = { subir: async () => {}, bajar: async (c) => (c ? { docs: [], cursor: c } : { docs, cursor: '1' }) };
+  const r = await sincronizar(A, remoto, {});
+  assert.equal(r.enEspera, 500);
+  assert.equal(JSON.parse(estado(A, 'pendientes')).length, 500);
 });

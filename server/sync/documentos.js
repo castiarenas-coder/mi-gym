@@ -41,8 +41,14 @@ export function cambiosLocales(db, desde) {
   const d = desde ?? '';
   const out = [];
 
-  for (const p of db.prepare('SELECT * FROM personas WHERE actualizado > ?').all(d))
-    out.push(doc('persona', p.uid, p.actualizado, { nombre: p.nombre, color: p.color, avatar: p.avatar, creada: p.creada }));
+  for (const p of db.prepare('SELECT * FROM personas WHERE actualizado > ?').all(d)) {
+    const datos = { nombre: p.nombre, color: p.color, avatar: p.avatar, creada: p.creada };
+    // Una persona que revivió sobre un borrado lo declara: así todos matan lo anterior a esa fecha, también lo que
+    // algún equipo creó sin saber del borrado (sin esto, ese equipo conservaría documentos que los demás descartaron).
+    const viva = db.prepare('SELECT fecha FROM sync_muertas WHERE persona = ? AND viva = 1').get(p.uid);
+    if (viva) datos.muerta_desde = viva.fecha;
+    out.push(doc('persona', p.uid, p.actualizado, datos));
+  }
 
   for (const r of db.prepare(
     'SELECT r.*, p.uid AS persona_uid FROM rutinas r JOIN personas p ON p.id = r.persona_id WHERE r.actualizado > ?').all(d))
@@ -81,11 +87,46 @@ export function cambiosLocales(db, desde) {
 const personaId = (db, uid) => db.prepare('SELECT id FROM personas WHERE uid = ?').get(uid)?.id ?? null;
 const lapida = (db, tipo, clave) => db.prepare('SELECT fecha FROM sync_borrados WHERE tipo = ? AND clave = ?').get(tipo, clave)?.fecha ?? null;
 const quitarLapida = (db, tipo, clave) => db.prepare('DELETE FROM sync_borrados WHERE tipo = ? AND clave = ?').run(tipo, clave);
-// Sin persona local: si la borré yo (lápida) y el documento no es posterior al borrado se descarta; si es posterior,
-// alguien la editó después y la persona va a revivir, así que (igual que si todavía no llegó) se espera.
+// Personas muertas: uid -> fecha del borrado (aquí o en otro equipo, aunque la persona nunca haya existido acá).
+const muerta = (db, uid) => db.prepare('SELECT fecha FROM sync_muertas WHERE persona = ? AND viva = 0').get(uid)?.fecha ?? null;
+const marcarMuerta = (db, uid, fecha) => db.prepare(
+  `INSERT INTO sync_muertas (persona, fecha, viva) VALUES (?, ?, 0)
+   ON CONFLICT (persona) DO UPDATE SET fecha = CASE WHEN viva = 1 THEN excluded.fecha ELSE MAX(fecha, excluded.fecha) END, viva = 0`).run(uid, fecha);
+const limpiarMuerta = (db, uid) => db.prepare('DELETE FROM sync_muertas WHERE persona = ?').run(uid);
+const reviveSobre = (db, uid, fecha) => db.prepare(
+  `INSERT INTO sync_muertas (persona, fecha, viva) VALUES (?, ?, 1)
+   ON CONFLICT (persona) DO UPDATE SET fecha = CASE WHEN viva = 1 THEN MAX(fecha, excluded.fecha) ELSE excluded.fecha END, viva = 1`).run(uid, fecha);
+
+// Lo de la persona que no es posterior al borrado `T` está muerto ("gana el más nuevo"): se borra con lápida de fecha `T`.
+function matarAnteriores(db, personaLocalId, uid, T) {
+  const muere = (tipo, clave, sql, ...p) => {
+    db.prepare(sql).run(...p);
+    db.prepare('INSERT OR REPLACE INTO sync_borrados (tipo, clave, fecha) VALUES (?, ?, ?)').run(tipo, clave, T);
+  };
+  for (const r of db.prepare('SELECT id, uid FROM rutinas WHERE persona_id = ? AND actualizado <= ?').all(personaLocalId, T))
+    muere('rutina', r.uid, 'DELETE FROM rutinas WHERE id = ?', r.id);
+  for (const r of db.prepare('SELECT id, uid FROM sesiones WHERE persona_id = ? AND actualizado <= ?').all(personaLocalId, T))
+    muere('sesion', r.uid, 'DELETE FROM sesiones WHERE id = ?', r.id);
+  for (const r of db.prepare('SELECT fecha FROM medidas WHERE persona_id = ? AND actualizado <= ?').all(personaLocalId, T))
+    muere('medida', `${uid}|${r.fecha}`, 'DELETE FROM medidas WHERE persona_id = ? AND fecha = ?', personaLocalId, r.fecha);
+  for (const r of db.prepare('SELECT 1 FROM perfil WHERE persona_id = ? AND actualizado <= ?').all(personaLocalId, T))
+    muere('perfil', uid, 'DELETE FROM perfil WHERE persona_id = ?', personaLocalId);
+  for (const r of db.prepare('SELECT ejercicio_id FROM favoritos WHERE persona_id = ? AND actualizado <= ?').all(personaLocalId, T))
+    muere('favorito', `${uid}|${r.ejercicio_id}`, 'DELETE FROM favoritos WHERE persona_id = ? AND ejercicio_id = ?', personaLocalId, r.ejercicio_id);
+}
+// Instante con el reloj de la base (el mismo de los disparadores), siempre posterior a `minimo` y al último envío,
+// para que lo re-estampado cuente como cambio local pendiente de subir.
+const ahoraDespues = (db, minimo) => {
+  const envio = db.prepare("SELECT valor FROM sync_estado WHERE clave = 'ultimo_envio'").get()?.valor ?? '';
+  return db.prepare(
+    "SELECT MAX(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', ?, '+0.001 seconds')) AS t")
+    .get(envio > minimo ? envio : minimo).t;
+};
+// Sin persona local: si murió en o después de la fecha del documento se descarta; si el documento es posterior al
+// borrado, alguien lo editó después y la persona va a revivir, así que (igual que si todavía no llegó) se espera.
 const sinPersona = (db, uid, actualizado) => {
-  const l = lapida(db, 'persona', uid);
-  return l && l >= actualizado ? 'ignorado' : 'en_espera';
+  const m = muerta(db, uid);
+  return m && m >= actualizado ? 'ignorado' : 'en_espera';
 };
 const ejerciciosConocidos = (db, lista) => {
   const existe = db.prepare('SELECT 1 FROM ejercicios WHERE id = ?');
@@ -109,20 +150,27 @@ const MANEJADORES = {
     },
     borrar(db, d, local) {
       // Si algo de la persona se editó después del borrado remoto, la edición gana: la persona vuelve a subirse viva.
+      // Lo anterior al borrado está muerto por "gana el más nuevo" y se borra con lápida de la fecha del borrado.
       const nueva = db.prepare(`SELECT 1 FROM (
           SELECT actualizado FROM rutinas WHERE persona_id = ?1 UNION ALL SELECT actualizado FROM sesiones WHERE persona_id = ?1
           UNION ALL SELECT actualizado FROM medidas WHERE persona_id = ?1 UNION ALL SELECT actualizado FROM perfil WHERE persona_id = ?1
           UNION ALL SELECT actualizado FROM favoritos WHERE persona_id = ?1) WHERE actualizado > ?2 LIMIT 1`).get(local.id, d.actualizado);
       if (nueva) {
-        db.prepare('UPDATE personas SET actualizado = ? WHERE id = ?').run(new Date().toISOString(), local.id);
+        db.prepare('UPDATE personas SET actualizado = ? WHERE id = ?').run(ahoraDespues(db, d.actualizado), local.id);
+        matarAnteriores(db, local.id, d.clave, d.actualizado);
+        reviveSobre(db, d.clave, d.actualizado);
         return 'ignorado';
       }
-      // El borrado en cascada deja lápidas de sus rutinas y sesiones; ya están borradas en origen, no se re-suben.
+      // El borrado en cascada deja lápidas de ella y de todo lo suyo; ya están borrados en origen, no se re-suben.
       const claves = [['persona', d.clave],
         ...db.prepare('SELECT uid FROM rutinas WHERE persona_id = ?').all(local.id).map(r => ['rutina', r.uid]),
-        ...db.prepare('SELECT uid FROM sesiones WHERE persona_id = ?').all(local.id).map(r => ['sesion', r.uid])];
+        ...db.prepare('SELECT uid FROM sesiones WHERE persona_id = ?').all(local.id).map(r => ['sesion', r.uid]),
+        ...db.prepare('SELECT fecha FROM medidas WHERE persona_id = ?').all(local.id).map(r => ['medida', `${d.clave}|${r.fecha}`]),
+        ...db.prepare('SELECT 1 FROM perfil WHERE persona_id = ?').all(local.id).map(() => ['perfil', d.clave]),
+        ...db.prepare('SELECT ejercicio_id FROM favoritos WHERE persona_id = ?').all(local.id).map(r => ['favorito', `${d.clave}|${r.ejercicio_id}`])];
       db.prepare('DELETE FROM personas WHERE id = ?').run(local.id);
       for (const [t, c] of claves) quitarLapida(db, t, c);
+      db.prepare('INSERT OR REPLACE INTO sync_muertas (persona, fecha) VALUES (?, ?)').run(d.clave, d.actualizado);
     },
   },
 
@@ -171,6 +219,7 @@ const MANEJADORES = {
       // Rutina que aún no llegó: se espera. Si la borré yo (lápida) la sesión queda sin rutina; un día fuera de rango, sin día.
       const rutina = x.rutina ? db.prepare('SELECT id FROM rutinas WHERE uid = ?').get(x.rutina)?.id ?? null : null;
       if (x.rutina && rutina == null && !lapida(db, 'rutina', x.rutina)) return 'en_espera';
+      const rutinaPerdida = !!x.rutina && rutina == null;
       const dia = rutina != null && x.dia_posicion != null
         ? db.prepare('SELECT id FROM rutina_dias WHERE rutina_id = ? ORDER BY orden, id LIMIT 1 OFFSET ?').get(rutina, x.dia_posicion)?.id ?? null
         : null;
@@ -188,8 +237,11 @@ const MANEJADORES = {
       const insS = db.prepare('INSERT INTO series_hechas (sesion_id, ejercicio_id, n, peso_kg, reps, rpe, hecha) VALUES (?, ?, ?, ?, ?, ?, ?)');
       for (const s of ejerciciosConocidos(db, x.series ?? []))
         insS.run(id, s.ejercicio_id, s.n, nulo(s.peso_kg), nulo(s.reps), nulo(s.rpe), s.hecha ?? 1);
-      db.prepare('UPDATE sesiones SET actualizado = ? WHERE id = ?').run(d.actualizado, id);
-      return 'aplicado';
+      // Si perdió su rutina o su día (lápida local, rutina más corta) la versión local ya no es la del documento:
+      // se estampa con "ahora" para que se suba y todos los equipos converjan en la versión degradada.
+      const degradada = rutinaPerdida || (x.dia_posicion != null && dia == null);
+      db.prepare('UPDATE sesiones SET actualizado = ? WHERE id = ?').run(degradada ? ahoraDespues(db, d.actualizado) : d.actualizado, id);
+      return degradada ? 'degradado' : 'aplicado';
     },
     borrar(db, d, local) {
       db.prepare('DELETE FROM sesiones WHERE id = ?').run(local.id);
@@ -264,7 +316,8 @@ const MANEJADORES = {
 
 /**
  * Aplica un documento remoto si es más nuevo que lo local (fila o lápida).
- * Devuelve 'aplicado', 'ignorado' o 'en_espera' (falta la persona de la que depende).
+ * Devuelve 'aplicado', 'degradado' (aplicado, pero con un cambio local que hay que subir), 'ignorado' o
+ * 'en_espera' (falta la persona de la que depende).
  */
 export function aplicarDocumento(db, d) {
   const m = MANEJADORES[d?.tipo];
@@ -275,12 +328,37 @@ export function aplicarDocumento(db, d) {
     const local = m.local(db, d.clave);
     let res;
     if (d.borrado) {
-      if (!local || local.actualizado > d.actualizado) res = 'ignorado';
+      if (!local) {
+        // Una persona que nunca estuvo acá también queda registrada como muerta (para descartar o esperar a sus hijos).
+        if (d.tipo === 'persona') marcarMuerta(db, d.clave, d.actualizado);
+        res = 'ignorado';
+      } else if (local.actualizado > d.actualizado) res = 'ignorado';
       else res = m.borrar(db, d, local) ?? 'aplicado';
     } else {
       const borradoLocal = lapida(db, d.tipo, d.clave);
-      if ((local && local.actualizado >= d.actualizado) || (borradoLocal && borradoLocal >= d.actualizado)) res = 'ignorado';
-      else res = m.escribir(db, d, local);
+      const murio = d.tipo === 'persona' ? muerta(db, d.clave) : null;
+      // Un hijo que no es posterior al borrado de su persona (haya revivido o no) está muerto.
+      const hijoMuerto = d.tipo !== 'persona' && d.datos?.persona
+        && (db.prepare('SELECT fecha FROM sync_muertas WHERE persona = ?').get(d.datos.persona)?.fecha ?? '') >= d.actualizado;
+      // Con la misma fecha gana el borrado.
+      if (hijoMuerto || (local && local.actualizado >= d.actualizado) || (borradoLocal && borradoLocal >= d.actualizado) || (murio && murio >= d.actualizado)) res = 'ignorado';
+      else {
+        res = m.escribir(db, d, local);
+        if (d.tipo === 'persona' && res === 'aplicado') {
+          // La persona vive sobre un borrado: el del documento (que este equipo quizá no vio) o el que conocía acá.
+          const desde = d.datos?.muerta_desde ?? null;
+          const efectivo = [desde, murio].filter(Boolean).sort().at(-1);
+          if (efectivo) {
+            matarAnteriores(db, personaId(db, d.clave), d.clave, efectivo);
+            reviveSobre(db, d.clave, efectivo);
+            // Si el borrado conocido acá no viajaba en el documento, hay que difundirlo: se re-estampa para subirla.
+            if (murio && murio > (desde ?? '')) {
+              db.prepare('UPDATE personas SET actualizado = ? WHERE uid = ?').run(ahoraDespues(db, d.actualizado), d.clave);
+              res = 'degradado';
+            }
+          }
+        }
+      }
     }
     db.exec('RELEASE aplicar_doc');
     return res;

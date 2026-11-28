@@ -10,6 +10,8 @@
 //   cursor        hasta dónde se bajó del remoto (opaco para el motor)
 //   pendientes    documentos bajados que esperan a su persona/rutina (JSON; sobreviven a un reinicio)
 //   eco           documentos aplicados desde el remoto, para no volver a subirlos (JSON { "tipo|clave": actualizado })
+//   rechazados    documentos que no se pudieron aplicar (JSON { "tipo|clave": { actualizado, error } }, los últimos 100);
+//                 se saltean mientras la versión sea la misma y se reintentan si llega una más nueva
 //   ultima_sync   cuándo terminó la última vuelta completa
 //
 // Garantías: nada se marca como enviado si `subir` falla (cualquier lote); el cursor solo avanza junto con la
@@ -20,6 +22,8 @@ import { cambiosLocales, aplicarDocumento } from './documentos.js';
 
 const LOTE_SUBIDA = 200;
 const MAX_PAGINAS = 1000; // freno de seguridad contra un remoto que nunca termina
+const MAX_PENDIENTES = 500; // tope de respaldo de la lista de espera (se descartan las más viejas)
+const MAX_RECHAZADOS = 100;
 
 // personas -> rutinas y perfiles -> sesiones, medidas y favoritos
 const RANGO = { persona: 0, rutina: 1, perfil: 1, sesion: 2, medida: 2, favorito: 2 };
@@ -53,7 +57,7 @@ async function subirCambios(db, remoto, lote) {
 }
 
 /** Aplica un conjunto de documentos; los que esperan algo se reintentan mientras otros avancen. */
-function aplicarLote(db, docs) {
+function aplicarLote(db, docs, rechazados) {
   let espera = ordenar(docs);
   let aplicados = 0;
   const eco = {};
@@ -61,11 +65,28 @@ function aplicarLote(db, docs) {
     progreso = false;
     const siguiente = [];
     for (const d of espera) {
-      const res = aplicarDocumento(db, d);
+      const k = claveDe(d);
+      if (rechazados[k]?.actualizado === d.actualizado) continue; // ya falló con esta misma versión
+      let res;
+      try { res = aplicarDocumento(db, d); } catch (err) {
+        // El savepoint ya deshizo este documento; se aparta y el resto sigue (el cursor pasa de largo).
+        delete rechazados[k];
+        rechazados[k] = { actualizado: d.actualizado, error: String(err?.message ?? err) };
+        console.warn(`[sync] documento rechazado ${k}: ${rechazados[k].error}`);
+        continue;
+      }
+      delete rechazados[k];
       if (res === 'en_espera') { siguiente.push(d); continue; }
-      if (res === 'aplicado') { aplicados++; eco[claveDe(d)] = d.actualizado; progreso = true; }
+      // 'degradado': quedó distinto del documento (perdió rutina o día); no es eco, así que se sube.
+      if (res === 'aplicado' || res === 'degradado') { aplicados++; progreso = true; }
+      if (res === 'aplicado') eco[k] = d.actualizado;
     }
     espera = siguiente;
+  }
+  for (const k of Object.keys(rechazados).slice(0, Math.max(0, Object.keys(rechazados).length - MAX_RECHAZADOS))) delete rechazados[k];
+  if (espera.length > MAX_PENDIENTES) {
+    console.warn(`[sync] ${espera.length - MAX_PENDIENTES} documentos en espera descartados (tope ${MAX_PENDIENTES})`);
+    espera = espera.slice(-MAX_PENDIENTES);
   }
   return { aplicados, espera, eco };
 }
@@ -81,27 +102,37 @@ function unir(pendientes, nuevos) {
 }
 
 /**
- * Una vuelta: primero sube, después baja. Devuelve { subidos, bajados, enEspera }.
- *  - subidos: documentos enviados; bajados: documentos aplicados localmente; enEspera: pendientes que quedan.
+ * Una vuelta: primero sube, después baja. Devuelve { subidos, bajados, enEspera, rechazados, parcial? }.
+ *  - subidos: documentos enviados; bajados: documentos aplicados localmente; enEspera: pendientes que quedan;
+ *    rechazados: documentos en cuarentena (no se pudieron aplicar); parcial: true si se cortó por el tope de páginas.
  * Documentos en espera (llegaron antes que su persona/rutina): no frenan el cursor; se guardan en
  * `sync_estado.pendientes` y se reintentan en cada vuelta hasta que aparezca lo que les falta.
  */
 export async function sincronizar(db, remoto, { ahora, lote = LOTE_SUBIDA } = {}) {
-  const subidos = await subirCambios(db, remoto, lote);
+  let subidos = await subirCambios(db, remoto, lote);
 
   let bajados = 0;
   let cursor = leer(db, 'cursor');
   let pendientes = leerJson(db, 'pendientes', []);
   let primera = true;
+  let completa = false;
+  let procesados = 0;
+  let rechazados = leerJson(db, 'rechazados', {});
   for (let pagina = 0; pagina < MAX_PAGINAS; pagina++) {
     const r = await remoto.bajar(cursor);
     const docs = r?.docs ?? [];
     const nuevoCursor = r?.cursor ?? cursor;
     // Sin novedades solo se reintentan las pendientes (una vez por vuelta), por si lo que faltaba llegó antes.
-    if (!docs.length && !(primera && pendientes.length)) break;
+    if (!docs.length && !(primera && pendientes.length)) {
+      if (nuevoCursor != null && nuevoCursor !== cursor) guardar(db, 'cursor', nuevoCursor);
+      completa = true;
+      break;
+    }
     primera = false;
+    procesados += docs.length;
     const res = enTransaccion(db, () => {
-      const hecho = aplicarLote(db, unir(pendientes, docs));
+      const hecho = aplicarLote(db, unir(pendientes, docs), rechazados);
+      guardar(db, 'rechazados', JSON.stringify(rechazados));
       const eco = { ...leerJson(db, 'eco', {}), ...hecho.eco };
       guardar(db, 'eco', JSON.stringify(eco));
       guardar(db, 'pendientes', JSON.stringify(hecho.espera));
@@ -110,10 +141,15 @@ export async function sincronizar(db, remoto, { ahora, lote = LOTE_SUBIDA } = {}
     });
     bajados += res.aplicados;
     pendientes = res.espera;
-    if (!docs.length || nuevoCursor === cursor) break;
+    if (!docs.length || nuevoCursor === cursor) { completa = true; break; }
     cursor = nuevoCursor;
   }
 
+  // Procesar lo bajado puede dejar cambios propios (una persona que revive, una sesión degradada): se suben ya.
+  if (procesados > 0) subidos += await subirCambios(db, remoto, lote);
+
   guardar(db, 'ultima_sync', ahora ?? new Date().toISOString());
-  return { subidos, bajados, enEspera: pendientes.length };
+  const out = { subidos, bajados, enEspera: pendientes.length, rechazados: Object.keys(rechazados).length };
+  if (!completa) out.parcial = true;
+  return out;
 }
