@@ -19,6 +19,9 @@ export function backupDb(db, backupsDir, { keep = 30, now = new Date() } = {}) {
   let target = path.join(backupsDir, `mi_gym-${stamp}.db`);
   for (let n = 2; fs.existsSync(target); n++) target = path.join(backupsDir, `mi_gym-${stamp}-${String(n).padStart(2, '0')}.db`);
   db.exec(`VACUUM INTO '${target.replace(/'/g, "''")}'`);
+  // La sesión de la cuenta (tokens) nunca viaja en un respaldo.
+  const copia = new DatabaseSync(target);
+  try { copia.exec("DELETE FROM sync_estado WHERE clave = 'sesion'"); } finally { copia.close(); }
   const todos = listarBackups(backupsDir);
   for (const viejo of todos.slice(0, Math.max(0, todos.length - keep))) fs.rmSync(path.join(backupsDir, viejo), { force: true });
   return target;

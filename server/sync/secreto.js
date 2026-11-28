@@ -1,14 +1,13 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 
 // Cifrado de lo que no debe quedar en claro en la base local (los tokens de la cuenta).
-// AES-256-GCM; el texto cifrado es base64 de iv(12) + etiqueta(16) + datos. La clave es por equipo
-// y vive en `sync_estado` (protege de copiar la base a otro equipo con el archivo de la nube;
-// no es una defensa contra quien ya tiene acceso al equipo).
+// AES-256-GCM; el texto cifrado es base64 de iv(12) + etiqueta(16) + datos. La clave es por equipo y vive
+// en un archivo aparte (`<dataDir>/clave-equipo`, modo 0600), nunca en la base: una base o un respaldo
+// copiados a otro lado no sirven sin ese archivo (la sesión se lee como vacía y se vuelve a iniciar).
+// No es una defensa contra quien ya tiene acceso a la carpeta de datos de este equipo.
 
-const CLAVE_EQUIPO = 'clave_equipo';
-const CLAVE_SESION = 'sesion';
-
-/** Clave nueva de 32 bytes, en base64. */
 export const generarClave = () => crypto.randomBytes(32).toString('base64');
 
 const bufferDeClave = (clave) => {
@@ -32,31 +31,45 @@ export function descifrar(texto, clave) {
   return Buffer.concat([d.update(b.subarray(28)), d.final()]).toString('utf8');
 }
 
-const leerEstado = (db, k) => db.prepare('SELECT valor FROM sync_estado WHERE clave = ?').get(k)?.valor ?? null;
-const guardarEstado = (db, k, v) => db.prepare(
-  'INSERT INTO sync_estado (clave, valor) VALUES (?, ?) ON CONFLICT (clave) DO UPDATE SET valor = excluded.valor').run(k, v);
 
-/** Clave de este equipo: se crea la primera vez y queda guardada en `sync_estado`. */
-export function claveDelEquipo(db) {
-  let k = leerEstado(db, CLAVE_EQUIPO);
-  if (!k) { k = generarClave(); guardarEstado(db, CLAVE_EQUIPO, k); }
-  return k;
+const CLAVE_SESION = 'sesion';
+
+const leerArchivo = (ruta) => { try { return fs.readFileSync(ruta, 'utf8').trim() || null; } catch { return null; } };
+
+/** Clave de este equipo: se crea la primera vez en `rutaArchivo` (modo 0600) y se reutiliza. */
+export function claveDelEquipo(rutaArchivo) {
+  const existente = leerArchivo(rutaArchivo);
+  if (existente) return existente;
+  fs.mkdirSync(path.dirname(rutaArchivo), { recursive: true });
+  const k = generarClave();
+  try {
+    fs.writeFileSync(rutaArchivo, k, { mode: 0o600, flag: 'wx' });
+    return k;
+  } catch (e) {
+    if (e.code === 'EEXIST') return leerArchivo(rutaArchivo) ?? k;
+    throw e;
+  }
 }
 
+const leerEstado = (db, k) => db.prepare('SELECT valor FROM sync_estado WHERE clave = ?').get(k)?.valor ?? null;
+
 /**
- * `guardarSesion` / `leerSesion` para `crearClienteSupabase`, guardando la sesión cifrada en `sync_estado`.
- * `guardarSesion(null)` la borra. Un valor ilegible o manipulado se trata como "sin sesión".
+ * `guardarSesion` / `leerSesion` para `crearClienteSupabase`: la sesión queda cifrada en `sync_estado.sesion` con la
+ * clave del archivo `rutaClave`. `guardarSesion(null)` la borra. Sin archivo de clave, con otra clave o con un valor
+ * ilegible o manipulado, `leerSesion` devuelve null (leer nunca crea la clave).
  */
-export function sesionEnDb(db) {
+export function sesionEnDb(db, rutaClave) {
   return {
     async guardarSesion(sesion) {
       if (!sesion) { db.prepare('DELETE FROM sync_estado WHERE clave = ?').run(CLAVE_SESION); return; }
-      guardarEstado(db, CLAVE_SESION, cifrar(JSON.stringify(sesion), claveDelEquipo(db)));
+      db.prepare('INSERT INTO sync_estado (clave, valor) VALUES (?, ?) ON CONFLICT (clave) DO UPDATE SET valor = excluded.valor')
+        .run(CLAVE_SESION, cifrar(JSON.stringify(sesion), claveDelEquipo(rutaClave)));
     },
     async leerSesion() {
       const crudo = leerEstado(db, CLAVE_SESION);
-      if (!crudo) return null;
-      try { return JSON.parse(descifrar(crudo, claveDelEquipo(db))); } catch { return null; }
+      const clave = leerArchivo(rutaClave);
+      if (!crudo || !clave) return null;
+      try { return JSON.parse(descifrar(crudo, clave)); } catch { return null; }
     },
   };
 }

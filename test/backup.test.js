@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { openDb } from '../server/db.js';
 import { backupDb, listarBackups, restoreDb } from '../server/backup.js';
 
@@ -61,4 +62,16 @@ test('backupDb nunca pisa un respaldo del mismo minuto y la rotación conserva l
   assert.equal(listarBackups(destino).length, 2);
   assert.ok(fs.existsSync(c) && fs.existsSync(b) && !fs.existsSync(a));
   db.close();
+});
+
+test('backupDb no copia la sesion de la cuenta', () => {
+  const db = openDb(':memory:');
+  db.prepare("INSERT INTO sync_estado (clave, valor) VALUES ('sesion', 'cifrado'), ('cursor', 'c1')").run();
+  const archivo = backupDb(db, tmp());
+  const copia = new DatabaseSync(archivo);
+  try {
+    assert.equal(copia.prepare("SELECT COUNT(*) n FROM sync_estado WHERE clave = 'sesion'").get().n, 0);
+    assert.equal(copia.prepare("SELECT valor FROM sync_estado WHERE clave = 'cursor'").get().valor, 'c1');
+  } finally { copia.close(); }
+  assert.equal(db.prepare("SELECT COUNT(*) n FROM sync_estado WHERE clave = 'sesion'").get().n, 1);
 });
