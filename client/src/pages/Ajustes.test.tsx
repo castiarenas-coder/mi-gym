@@ -36,6 +36,8 @@ describe('página Ajustes', () => {
     expect(await screen.findByText('C:\\Mi_Gym\\data\\mi_gym.db')).toBeInTheDocument()
     const lista = await screen.findByRole('list', { name: 'Respaldos' })
     expect(within(lista).getByText(/mi_gym-20261125-1200\.db/)).toBeInTheDocument()
+    expect(screen.getByText(/Solo sale a internet si sincronizás con tu cuenta/)).toBeInTheDocument()
+    expect(screen.queryByText(/No sale a internet/)).not.toBeInTheDocument()
   })
 
   it('muestra cómo donar: alias de Mercado Pago copiable y link de PayPal', async () => {

@@ -196,7 +196,7 @@ export function Ajustes() {
       <h2 className="grupo__titulo">Respaldo</h2>
       <section className="tarjeta bloque" aria-labelledby="aj-datos">
         <h3 id="aj-datos" className="bloque__titulo">Tus datos</h3>
-        <p className="bloque__ayuda">Todo se guarda en {enAndroid ? 'este celular' : 'esta PC'}, en un solo archivo. No sale a internet.</p>
+        <p className="bloque__ayuda">Todo se guarda en {enAndroid ? 'este celular' : 'esta PC'}, en un solo archivo. Solo sale a internet si sincronizás con tu cuenta.</p>
         {i && (
           <dl className="datos">
             <dt>Ubicación</dt><dd className="datos__ruta">{i.db ?? 'No disponible'}</dd>
