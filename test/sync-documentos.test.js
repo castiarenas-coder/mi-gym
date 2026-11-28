@@ -256,3 +256,88 @@ test('los hijos de una sesión aplicada no vuelven a marcar la sesión', () => {
   const sb = b.prepare("SELECT actualizado FROM sesiones WHERE estado = 'finalizada'").get().actualizado;
   assert.equal(sb, sa);
 });
+
+test('una sesión cuya rutina todavía no llegó queda en espera; si la borré yo, se aplica sin rutina', () => {
+  const a = conDatos();
+  const b = base();
+  const orden = ['persona', 'rutina', 'sesion'];
+  const docs = cambiosLocales(a, null).sort((x, y) => orden.indexOf(x.tipo) - orden.indexOf(y.tipo));
+  const sesion = docs.find(d => d.tipo === 'sesion');
+  const rutina = docs.find(d => d.tipo === 'rutina');
+  aplicarDocumento(b, docs.find(d => d.tipo === 'persona' && d.datos.nombre === 'Ana'));
+  assert.equal(aplicarDocumento(b, sesion), 'en_espera');
+  assert.equal(aplicarDocumento(b, rutina), 'aplicado');
+  b.prepare('DELETE FROM rutinas WHERE uid = ?').run(rutina.clave); // lápida local
+  esperar(10);
+  const nueva = { ...sesion, actualizado: new Date().toISOString() };
+  assert.equal(aplicarDocumento(b, nueva), 'aplicado');
+  assert.equal(b.prepare('SELECT rutina_id FROM sesiones WHERE uid = ?').get(sesion.clave).rutina_id, null);
+});
+
+test('un día fuera de rango deja la sesión sin día pero la aplica', () => {
+  const a = conDatos();
+  const b = base();
+  copiar(a, b);
+  esperar(10);
+  const s = cambiosLocales(a, null).find(d => d.tipo === 'sesion');
+  const doc = { ...s, actualizado: new Date().toISOString(), datos: { ...s.datos, dia_posicion: 9 } };
+  assert.equal(aplicarDocumento(b, doc), 'aplicado');
+  assert.equal(b.prepare('SELECT dia_id FROM sesiones WHERE uid = ?').get(s.clave).dia_id, null);
+});
+
+test('un borrado remoto de persona no pisa ediciones locales más nuevas', () => {
+  const a = conDatos();
+  const b = base();
+  copiar(a, b);
+  const corte = new Date().toISOString();
+  esperar(10);
+  a.exec("DELETE FROM personas WHERE nombre = 'Ana'");
+  const borrado = cambiosLocales(a, corte).find(d => d.tipo === 'persona');
+  esperar(10);
+  b.exec("UPDATE rutinas SET nombre = 'Sobrevive'");
+  assert.equal(aplicarDocumento(b, borrado), 'ignorado');
+  assert.equal(b.prepare('SELECT nombre FROM rutinas').get().nombre, 'Sobrevive');
+  const p = cambiosLocales(b, corte).find(d => d.tipo === 'persona' && d.datos.nombre === 'Ana');
+  assert.ok(p && !p.borrado && p.actualizado > borrado.actualizado);
+});
+
+test('aplicarDocumento funciona dentro de una transacción externa', () => {
+  const a = conDatos();
+  const b = base();
+  b.exec('BEGIN');
+  const orden = ['persona', 'rutina', 'sesion', 'medida', 'perfil', 'favorito'];
+  for (const d of cambiosLocales(a, null).sort((x, y) => orden.indexOf(x.tipo) - orden.indexOf(y.tipo)))
+    aplicarDocumento(b, d);
+  assert.equal(b.isTransaction, true);
+  // un fallo dentro revierte solo ese documento
+  const malo = cambiosLocales(a, null).find(d => d.tipo === 'medida');
+  assert.throws(() => aplicarDocumento(b, { ...malo, actualizado: '9999', datos: { ...malo.datos, fecha: null } }));
+  assert.equal(b.isTransaction, true);
+  b.exec('COMMIT');
+  assert.equal(filas(b, 'SELECT 1 FROM rutinas').length, 1);
+  assert.equal(aplicarDocumento(b, cambiosLocales(a, null).find(d => d.tipo === 'rutina')), 'ignorado');
+  assert.equal(b.isTransaction, false);
+});
+
+test('una persona borrada localmente no deja documentos en espera sino ignorados', () => {
+  const a = conDatos();
+  const b = base();
+  copiar(a, b);
+  b.exec("DELETE FROM personas WHERE nombre = 'Ana'");
+  for (const tipo of ['rutina', 'sesion', 'medida', 'perfil', 'favorito']) {
+    const d = cambiosLocales(a, null).find(x => x.tipo === tipo);
+    assert.equal(aplicarDocumento(b, { ...d, actualizado: '9999' }), 'ignorado', tipo);
+  }
+});
+
+test('los días de una rutina se escriben con orden normalizado', () => {
+  const a = conDatos();
+  const b = base();
+  const orden = ['persona', 'rutina'];
+  const docs = cambiosLocales(a, null).sort((x, y) => orden.indexOf(x.tipo) - orden.indexOf(y.tipo));
+  for (const d of docs) {
+    if (d.tipo === 'rutina') d.datos.dias.forEach(x => { x.orden = 0; });
+    if (d.tipo === 'persona' || d.tipo === 'rutina') aplicarDocumento(b, d);
+  }
+  assert.deepEqual(filas(b, 'SELECT nombre, orden FROM rutina_dias ORDER BY orden').map(x => [x.nombre, x.orden]), [['D1', 0], ['D2', 1]]);
+});

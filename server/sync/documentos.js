@@ -81,6 +81,8 @@ export function cambiosLocales(db, desde) {
 const personaId = (db, uid) => db.prepare('SELECT id FROM personas WHERE uid = ?').get(uid)?.id ?? null;
 const lapida = (db, tipo, clave) => db.prepare('SELECT fecha FROM sync_borrados WHERE tipo = ? AND clave = ?').get(tipo, clave)?.fecha ?? null;
 const quitarLapida = (db, tipo, clave) => db.prepare('DELETE FROM sync_borrados WHERE tipo = ? AND clave = ?').run(tipo, clave);
+// Sin persona local: si la borré yo (lápida) el documento se descarta; si no, todavía no llegó y se espera.
+const sinPersona = (db, uid) => (lapida(db, 'persona', uid) ? 'ignorado' : 'en_espera');
 const ejerciciosConocidos = (db, lista) => {
   const existe = db.prepare('SELECT 1 FROM ejercicios WHERE id = ?');
   return lista.filter(e => existe.get(e.ejercicio_id));
@@ -102,6 +104,15 @@ const MANEJADORES = {
       return 'aplicado';
     },
     borrar(db, d, local) {
+      // Si algo de la persona se editó después del borrado remoto, la edición gana: la persona vuelve a subirse viva.
+      const nueva = db.prepare(`SELECT 1 FROM (
+          SELECT actualizado FROM rutinas WHERE persona_id = ?1 UNION ALL SELECT actualizado FROM sesiones WHERE persona_id = ?1
+          UNION ALL SELECT actualizado FROM medidas WHERE persona_id = ?1 UNION ALL SELECT actualizado FROM perfil WHERE persona_id = ?1
+          UNION ALL SELECT actualizado FROM favoritos WHERE persona_id = ?1) WHERE actualizado > ?2 LIMIT 1`).get(local.id, d.actualizado);
+      if (nueva) {
+        db.prepare('UPDATE personas SET actualizado = ? WHERE id = ?').run(new Date().toISOString(), local.id);
+        return 'ignorado';
+      }
       // El borrado en cascada deja lápidas de sus rutinas y sesiones; ya están borradas en origen, no se re-suben.
       const claves = [['persona', d.clave],
         ...db.prepare('SELECT uid FROM rutinas WHERE persona_id = ?').all(local.id).map(r => ['rutina', r.uid]),
@@ -116,19 +127,21 @@ const MANEJADORES = {
     escribir(db, d, local) {
       const x = d.datos;
       const pid = personaId(db, x.persona);
-      if (pid == null) return 'en_espera';
+      if (pid == null) return sinPersona(db, x.persona);
       let id = local?.id;
       if (id) db.prepare('UPDATE rutinas SET nombre = ?, dias = ?, descripcion = ?, persona_id = ? WHERE id = ?')
         .run(x.nombre, x.dias_semana ?? '[]', x.descripcion ?? '', pid, id);
       else id = Number(db.prepare('INSERT INTO rutinas (uid, nombre, dias, descripcion, persona_id, actualizado) VALUES (?, ?, ?, ?, ?, ?)')
         .run(d.clave, x.nombre, x.dias_semana ?? '[]', x.descripcion ?? '', pid, d.actualizado).lastInsertRowid);
       // Los días existentes se reutilizan por posición (las sesiones apuntan a ellos); sobran o faltan al final.
+      // Limitación conocida: los días no tienen identidad, así que quitar un día del medio puede reasociar
+      // por posición las sesiones que apuntaban a los días siguientes.
       const actuales = db.prepare('SELECT id FROM rutina_dias WHERE rutina_id = ? ORDER BY orden, id').all(id);
       const dias = x.dias ?? [];
       dias.forEach((dia, i) => {
         let diaId = actuales[i]?.id;
-        if (diaId) db.prepare('UPDATE rutina_dias SET nombre = ?, orden = ? WHERE id = ?').run(dia.nombre, dia.orden ?? i, diaId);
-        else diaId = Number(db.prepare('INSERT INTO rutina_dias (rutina_id, nombre, orden) VALUES (?, ?, ?)').run(id, dia.nombre, dia.orden ?? i).lastInsertRowid);
+        if (diaId) db.prepare('UPDATE rutina_dias SET nombre = ?, orden = ? WHERE id = ?').run(dia.nombre, i, diaId);
+        else diaId = Number(db.prepare('INSERT INTO rutina_dias (rutina_id, nombre, orden) VALUES (?, ?, ?)').run(id, dia.nombre, i).lastInsertRowid);
         db.prepare('DELETE FROM rutina_ejercicios WHERE dia_id = ?').run(diaId);
         const ins = db.prepare('INSERT INTO rutina_ejercicios (dia_id, ejercicio_id, orden, series, reps, descanso_seg, nota) VALUES (?, ?, ?, ?, ?, ?, ?)');
         for (const e of ejerciciosConocidos(db, dia.ejercicios ?? []))
@@ -150,9 +163,10 @@ const MANEJADORES = {
       const x = d.datos;
       if (x.estado === 'en_curso') return 'ignorado';
       const pid = personaId(db, x.persona);
-      if (pid == null) return 'en_espera';
-      // Si la rutina o el día no existen acá, la sesión queda sin ese vínculo.
+      if (pid == null) return sinPersona(db, x.persona);
+      // Rutina que aún no llegó: se espera. Si la borré yo (lápida) la sesión queda sin rutina; un día fuera de rango, sin día.
       const rutina = x.rutina ? db.prepare('SELECT id FROM rutinas WHERE uid = ?').get(x.rutina)?.id ?? null : null;
+      if (x.rutina && rutina == null && !lapida(db, 'rutina', x.rutina)) return 'en_espera';
       const dia = rutina != null && x.dia_posicion != null
         ? db.prepare('SELECT id FROM rutina_dias WHERE rutina_id = ? ORDER BY orden, id LIMIT 1 OFFSET ?').get(rutina, x.dia_posicion)?.id ?? null
         : null;
@@ -187,7 +201,7 @@ const MANEJADORES = {
     escribir(db, d, local) {
       const x = d.datos;
       const pid = personaId(db, x.persona);
-      if (pid == null) return 'en_espera';
+      if (pid == null) return sinPersona(db, x.persona);
       db.prepare(`INSERT INTO medidas (persona_id, fecha, peso_kg, cintura, pecho, brazo, pierna, grasa_pct, actualizado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (persona_id, fecha) DO UPDATE SET peso_kg = excluded.peso_kg, cintura = excluded.cintura, pecho = excluded.pecho,
           brazo = excluded.brazo, pierna = excluded.pierna, grasa_pct = excluded.grasa_pct`)
@@ -207,7 +221,7 @@ const MANEJADORES = {
     escribir(db, d) {
       const x = d.datos;
       const pid = personaId(db, x.persona);
-      if (pid == null) return 'en_espera';
+      if (pid == null) return sinPersona(db, x.persona);
       db.prepare(`INSERT INTO perfil (persona_id, altura, edad, sexo, actividad, objetivo, fecha_nacimiento, actualizado) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (persona_id) DO UPDATE SET altura = excluded.altura, edad = excluded.edad, sexo = excluded.sexo,
           actividad = excluded.actividad, objetivo = excluded.objetivo, fecha_nacimiento = excluded.fecha_nacimiento`)
@@ -229,7 +243,7 @@ const MANEJADORES = {
     escribir(db, d) {
       const x = d.datos;
       const pid = personaId(db, x.persona);
-      if (pid == null) return 'en_espera';
+      if (pid == null) return sinPersona(db, x.persona);
       if (!db.prepare('SELECT 1 FROM ejercicios WHERE id = ?').get(x.ejercicio_id)) return 'ignorado';
       db.prepare(`INSERT INTO favoritos (persona_id, ejercicio_id, actualizado) VALUES (?, ?, ?)
         ON CONFLICT (persona_id, ejercicio_id) DO NOTHING`).run(pid, x.ejercicio_id, d.actualizado);
@@ -251,22 +265,24 @@ const MANEJADORES = {
 export function aplicarDocumento(db, d) {
   const m = MANEJADORES[d?.tipo];
   if (!m || !TIPOS.includes(d.tipo)) return 'ignorado';
-  db.exec('BEGIN');
+  // SAVEPOINT: sirve solo o dentro de una transacción externa (un lote).
+  db.exec('SAVEPOINT aplicar_doc');
   try {
     const local = m.local(db, d.clave);
     let res;
     if (d.borrado) {
       if (!local || local.actualizado > d.actualizado) res = 'ignorado';
-      else { m.borrar(db, d, local); res = 'aplicado'; }
+      else res = m.borrar(db, d, local) ?? 'aplicado';
     } else {
       const borradoLocal = lapida(db, d.tipo, d.clave);
       if ((local && local.actualizado >= d.actualizado) || (borradoLocal && borradoLocal >= d.actualizado)) res = 'ignorado';
       else res = m.escribir(db, d, local);
     }
-    db.exec('COMMIT');
+    db.exec('RELEASE aplicar_doc');
     return res;
   } catch (err) {
-    db.exec('ROLLBACK');
+    db.exec('ROLLBACK TO aplicar_doc');
+    db.exec('RELEASE aplicar_doc');
     throw err;
   }
 }
