@@ -8,6 +8,7 @@ import { cambiosLocales } from '../server/sync/documentos.js';
 import { sincronizar } from '../server/sync/motor.js';
 import { estadoVinculo, vincular, personasDuplicadas, unificarPersonas } from '../server/sync/vincular.js';
 import { sembrarPlantillas } from '../server/plantillas.js';
+import { exportarDatos, importarDatos } from '../server/respaldo.js';
 import { crearRemotoEnMemoria } from './helpers-remoto.js';
 
 const nuevaBase = () => {
@@ -63,8 +64,8 @@ test('estadoVinculo: una nube con solo borrados cuenta como vacía; una persona 
   const remoto = crearRemotoEnMemoria();
   agregarPersona(R, 'Tmp', 1);
   await sincronizar(R, remoto, {});
-  R.exec("DELETE FROM personas WHERE nombre = 'Tmp'; DELETE FROM personas WHERE nombre = 'Yo'");
-  await sincronizar(R, remoto, {});
+  // Todo lo de la nube queda borrado (lápidas más nuevas, como si otro equipo hubiera borrado todo).
+  await remoto.subir(remoto.documentos().map(d => ({ ...d, borrado: true, datos: null, actualizado: '2999-01-01T00:00:00.000Z' })));
   assert.ok(borrados(remoto) > 0);
   assert.equal(await estadoVinculo(nuevaBase(), remoto), 'cuenta_vacia');
   const { remoto: conDatos } = await remotoConDatos();
@@ -334,7 +335,7 @@ test('un hijo creado sin conexión bajo la persona vieja, después de unificar, 
   for (const db of [A, B]) {
     assert.equal(n(db, 'SELECT COUNT(*) n FROM personas WHERE uid = ?', origenUid), 0);
     assert.equal(n(db, "SELECT COUNT(*) n FROM personas WHERE nombre = 'Yo'"), 1);
-    for (const t of ['rutinas', 'sesiones', 'medidas', 'perfil', 'favoritos']) assert.equal(n(db, `SELECT COUNT(*) n FROM ${t}`), 1, t);
+    for (const t of ["rutinas", "sesiones", "medidas", "perfil", "favoritos"]) assert.equal(n(db, `SELECT COUNT(*) n FROM ${t}`), 1, t);
     assert.equal(huerfanos(db), 0);
     assert.deepEqual(await sincronizar(db, remoto, {}), CERO);
   }
@@ -531,3 +532,233 @@ test('las personas bajadas no reciben plantillas al arrancar', async () => {
   sembrarPlantillas(M);
   assert.equal(n(M, "SELECT COUNT(*) n FROM rutinas r JOIN personas p ON p.id = r.persona_id WHERE p.nombre = 'Sin plantillas'"), 0);
 });
+
+// ---------- unificar + borrar personas, alias y restauración ----------
+
+const pendientes = (db) => JSON.parse(estado(db, 'pendientes') ?? '[]').length;
+const idPorUid = (db, uid) => db.prepare('SELECT id FROM personas WHERE uid = ?').get(uid).id;
+async function tresYo() {
+  const { A, B, remoto } = await dosConYo();
+  A.prepare("INSERT INTO personas (nombre, color, creada) VALUES ('Yo', '#fff', 'x')").run();
+  await converger([A, B], remoto);
+  assert.equal(n(B, "SELECT COUNT(*) n FROM personas WHERE nombre = 'Yo'"), 3);
+  const uids = q(A, "SELECT uid FROM personas WHERE nombre = 'Yo' ORDER BY uid").map(p => p.uid);
+  return { A, B, remoto, uids };
+}
+function assertSinColgados(dbs, muertas) {
+  for (const db of dbs) {
+    assert.ok(n(db, 'SELECT COUNT(*) n FROM personas') >= 1, 'ningún equipo se queda sin personas');
+    for (const uid of muertas) assert.equal(n(db, 'SELECT COUNT(*) n FROM personas WHERE uid = ?', uid), 0);
+    assert.equal(pendientes(db), 0);
+    assert.equal(huerfanos(db), 0);
+  }
+}
+
+test('B unifica Y en X y A (atrasado) borra X: nada colgado y nadie sin personas', async () => {
+  const { A, B, remoto } = await dosConYo();
+  const [par] = personasDuplicadas(B);
+  const X = uidDe(B, par.conservar);
+  const Y = uidDe(B, par.duplicada);
+  unificarPersonas(B, par.conservar, par.duplicada);
+  esperar(5);
+  await sincronizar(B, remoto, {});
+  esperar(5);
+  A.prepare('DELETE FROM personas WHERE uid = ?').run(X);
+  esperar(5);
+  await converger([A, B], remoto, 6);
+  assertSinColgados([A, B], [X, Y]);
+  for (const db of [A, B]) assert.deepEqual(await sincronizar(db, remoto, {}), CERO);
+  assert.deepEqual(vivosLocales(A), vivosLocales(B));
+});
+
+test('A borra X mientras B unifica Y en X con entrenamientos nuevos: converge sin colgados', async () => {
+  const { A, B, remoto } = await dosConYo();
+  const [par] = personasDuplicadas(B);
+  const X = uidDe(B, par.conservar);
+  const Y = uidDe(B, par.duplicada);
+  esperar(5);
+  A.prepare("INSERT INTO sesiones (fecha, estado, persona_id) VALUES ('2026-05-01T10:00:00.000Z', 'finalizada', ?)").run(idPorUid(A, Y));
+  esperar(5);
+  B.prepare("INSERT INTO sesiones (fecha, estado, persona_id) VALUES ('2026-05-02T10:00:00.000Z', 'finalizada', ?)").run(idPorUid(B, Y));
+  esperar(5);
+  A.prepare('DELETE FROM personas WHERE uid = ?').run(X);
+  esperar(10);
+  unificarPersonas(B, par.conservar, par.duplicada);
+  esperar(10);
+  await converger([A, B], remoto, 6);
+  assertSinColgados([A, B].map(db => db), []);
+  for (const db of [A, B]) assert.deepEqual(await sincronizar(db, remoto, {}), CERO);
+  assert.deepEqual(vivosLocales(A), vivosLocales(B));
+});
+
+test('cadena de alias a>b>c con c muerta: se quitan b y a sin rastro y nadie queda sin personas', async () => {
+  const { A, B, remoto, uids: [u1, u2, u3] } = await tresYo();
+  unificarPersonas(A, idPorUid(A, u2), idPorUid(A, u3));
+  unificarPersonas(A, idPorUid(A, u1), idPorUid(A, u2));
+  esperar(5);
+  await sincronizar(A, remoto, {});
+  esperar(5);
+  B.prepare('DELETE FROM personas WHERE uid = ?').run(u1);
+  esperar(5);
+  await converger([A, B], remoto, 8);
+  assertSinColgados([A, B], [u1, u2, u3]);
+  for (const db of [A, B]) assert.deepEqual(await sincronizar(db, remoto, {}), CERO);
+  assert.deepEqual(vivosLocales(A), vivosLocales(B));
+});
+
+test('un documento hijo de una persona unificada en una muerta no queda esperando', async () => {
+  const { A, B, remoto } = await dosConYo();
+  const [par] = personasDuplicadas(B);
+  const X = uidDe(B, par.conservar);
+  const Y = uidDe(B, par.duplicada);
+  unificarPersonas(B, par.conservar, par.duplicada);
+  esperar(5);
+  await sincronizar(B, remoto, {});
+  esperar(5);
+  A.prepare('DELETE FROM personas WHERE uid = ?').run(X);
+  esperar(5);
+  await sincronizar(A, remoto, {}); // A sube la muerte de X
+  esperar(5);
+  const C = nuevaBase();
+  await vincular(C, remoto, 'juntar');
+  // Un documento viejo de una rutina de Y llega a un equipo nuevo: la persona final está muerta, se descarta.
+  const doc = { tipo: 'rutina', clave: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', actualizado: '2000-01-01T00:00:00.000Z', borrado: false,
+    datos: { persona: Y, nombre: 'Vieja', descripcion: '', dias_semana: '[]', dias: [] } };
+  await remoto.subir([doc]);
+  await converger([C, B, A], remoto, 4);
+  for (const db of [A, B, C]) {
+    assert.equal(pendientes(db), 0);
+    assert.equal(n(db, "SELECT COUNT(*) n FROM rutinas WHERE nombre = 'Vieja'"), 0);
+  }
+});
+
+test('una lápida de persona más nueva que su alias quita el alias y no se emite como documento', async () => {
+  const { A, B, remoto } = await dosConYo();
+  const [par] = personasDuplicadas(B);
+  const X = uidDe(B, par.conservar);
+  const Y = uidDe(B, par.duplicada);
+  unificarPersonas(B, par.conservar, par.duplicada);
+  esperar(5);
+  await sincronizar(B, remoto, {});
+  esperar(5);
+  A.prepare('DELETE FROM personas WHERE uid = ?').run(Y);
+  esperar(5);
+  await converger([A, B], remoto, 6);
+  for (const db of [A, B]) {
+    assert.equal(n(db, 'SELECT COUNT(*) n FROM sync_alias WHERE origen = ?', Y), 0);
+    assert.equal(n(db, 'SELECT COUNT(*) n FROM personas WHERE uid = ?', X), 1);
+    assert.equal(cambiosLocales(db, null).filter(d => d.tipo === 'persona' && d.clave === Y && !d.borrado).length, 0);
+    assert.deepEqual(await sincronizar(db, remoto, {}), CERO);
+  }
+  assert.deepEqual(vivosLocales(A), vivosLocales(B));
+});
+
+test('un equipo atrasado borra una medida bajo la persona vieja después de unificar: se borra en todos', async () => {
+  const [A, B, C, remoto] = [nuevaBase(), nuevaBase(), nuevaBase(), crearRemotoEnMemoria()];
+  await vincular(A, remoto, 'subir');
+  await vincular(B, remoto, 'juntar');
+  await vincular(C, remoto, 'juntar');
+  await converger([A, B, C], remoto);
+  const [par] = personasDuplicadas(B);
+  const Y = uidDe(B, par.duplicada);
+  C.prepare("INSERT INTO medidas (persona_id, fecha, peso_kg) VALUES (?, '2026-01-01', 80)").run(idPorUid(C, Y));
+  await converger([A, B, C], remoto);
+  unificarPersonas(B, par.conservar, par.duplicada);
+  esperar(10);
+  await sincronizar(B, remoto, {});
+  esperar(10);
+  C.exec('DELETE FROM medidas');
+  esperar(10);
+  await converger([A, B, C], remoto, 6);
+  for (const db of [A, B, C]) assert.equal(n(db, 'SELECT COUNT(*) n FROM medidas'), 0);
+  for (const db of [A, B, C]) assert.deepEqual(await sincronizar(db, remoto, {}), CERO);
+});
+
+test('restaurar un respaldo anterior a unificar: la persona de origen no reaparece', async () => {
+  const { A, B, remoto } = await dosConYo();
+  const antes = exportarDatos(B);
+  const [par] = personasDuplicadas(B);
+  const Y = uidDe(B, par.duplicada);
+  unificarPersonas(B, par.conservar, par.duplicada);
+  await converger([A, B], remoto);
+  importarDatos(B, antes, {});
+  await converger([A, B], remoto, 6);
+  for (const db of [A, B]) {
+    assert.equal(n(db, 'SELECT COUNT(*) n FROM personas WHERE uid = ?', Y), 0);
+    sinPersonasRepetidas(db);
+    assert.deepEqual(await sincronizar(db, remoto, {}), CERO);
+  }
+  assert.deepEqual(vivosLocales(A), vivosLocales(B));
+});
+
+test('restaurar un respaldo anterior a unificar con el alias sin subir: se unifica en el lugar', async () => {
+  const { A, B, remoto } = await dosConYo();
+  const antes = exportarDatos(B);
+  const [par] = personasDuplicadas(B);
+  const Y = uidDe(B, par.duplicada);
+  unificarPersonas(B, par.conservar, par.duplicada); // sin sincronizar
+  importarDatos(B, antes, {});
+  assert.equal(n(B, 'SELECT COUNT(*) n FROM personas WHERE uid = ?', Y), 0);
+  await converger([A, B], remoto, 6);
+  for (const db of [A, B]) {
+    assert.equal(n(db, 'SELECT COUNT(*) n FROM personas WHERE uid = ?', Y), 0);
+    assert.deepEqual(await sincronizar(db, remoto, {}), CERO);
+  }
+  assert.deepEqual(vivosLocales(A), vivosLocales(B));
+});
+
+test('sincronizar deja una persona por defecto, sin plantillas, si el equipo se quedó sin ninguna', async () => {
+  const { R: A, remoto } = await remotoConDatos();
+  const L = nuevaBase();
+  await vincular(L, remoto, 'bajar', bk());
+  A.exec('DELETE FROM personas');
+  await sincronizar(A, remoto, {});
+  await sincronizar(L, remoto, {});
+  assert.equal(n(L, 'SELECT COUNT(*) n FROM personas'), 1);
+  assert.equal(sembrarPlantillas(L), 0);
+  assert.equal(n(L, 'SELECT COUNT(*) n FROM rutinas'), 0);
+  await converger([A, L], remoto, 4);
+  assert.deepEqual(await sincronizar(L, remoto, {}), CERO);
+});
+
+test('un equipo que se entera del alias sube de inmediato lo suyo que movió de clave conservando su marca', async () => {
+  const { A, B, remoto } = await dosConYo();
+  const [dB] = personasDuplicadas(B);
+  const X = uidDe(B, dB.conservar);
+  const Y = uidDe(B, dB.duplicada);
+  unificarPersonas(B, dB.conservar, dB.duplicada);
+  await sincronizar(B, remoto, {});
+  esperar(5);
+  A.prepare("INSERT INTO medidas (persona_id, fecha, peso_kg) VALUES (?, '2026-02-02', 77)").run(idPorUid(A, Y));
+  await sincronizar(A, remoto, {}); // sube bajo la clave vieja y recién después se entera del alias
+  const vivaX = remoto.documentos().find(d => d.tipo === 'medida' && d.clave === `${X}|2026-02-02`);
+  assert.equal(vivaX?.borrado, false);
+  assert.equal(vivaX.datos.peso_kg, 77);
+  await converger([A, B], remoto, 4);
+  for (const db of [A, B]) assert.deepEqual(await sincronizar(db, remoto, {}), CERO);
+  assert.deepEqual(vivosLocales(A), vivosLocales(B));
+});
+
+test('lo más nuevo de una rutina pertenece a una persona muerta: se borra la versión vieja y las sesiones no quedan esperando', async () => {
+  const { A, B, remoto, uids: [u1, u2, u3] } = await tresYo();
+  // B tiene una rutina bajo u3 con una sesión; A unifica u3 en u2 y u2 en u1; después B borra u1 (la conservada).
+  agregarPersonaConRutina(B, u3);
+  await converger([A, B], remoto);
+  unificarPersonas(A, idPorUid(A, u2), idPorUid(A, u3));
+  unificarPersonas(A, idPorUid(A, u1), idPorUid(A, u2));
+  esperar(5);
+  await sincronizar(A, remoto, {});
+  esperar(5);
+  B.prepare('DELETE FROM personas WHERE uid = ?').run(u1);
+  esperar(5);
+  await converger([A, B], remoto, 8);
+  assertSinColgados([A, B], [u1, u2, u3]);
+  assert.deepEqual(vivosLocales(A), vivosLocales(B));
+});
+
+function agregarPersonaConRutina(db, uid) {
+  const pid = idPorUid(db, uid);
+  db.exec(`INSERT INTO rutinas (nombre, dias, descripcion, persona_id) VALUES ('Rutina X', '[1]', '', ${pid})`);
+  const rid = db.prepare('SELECT MAX(id) AS id FROM rutinas').get().id;
+  db.exec(`INSERT INTO sesiones (rutina_id, fecha, estado, persona_id) VALUES (${rid}, '2026-02-01T10:00:00.000Z', 'finalizada', ${pid})`);
+}

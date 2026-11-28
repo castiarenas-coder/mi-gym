@@ -6,7 +6,7 @@
 //
 // Errores con `codigo` (ErrorVinculo): modo_invalido, otra_cuenta, nube_vacia, equipo_con_datos, entrenamiento_en_curso.
 
-import { sincronizar, reiniciarBajada, enTransaccion, leer, guardar, aplicarDescarga } from './motor.js';
+import { sincronizar, reiniciarBajada, enTransaccion, leer, guardar, aplicarDescarga, asegurarPersona } from './motor.js';
 import { ahoraDespues, fusionarPersona, registrarAlias, quitarPersonaFusionada } from './documentos.js';
 import { esPlantillaSinTocar } from '../plantillas.js';
 import { backupDb } from '../backup.js';
@@ -74,14 +74,14 @@ function vaciarSinBorrados(db) {
   for (const t of [...TABLAS_USUARIO].reverse()) if (t !== 'ajustes') db.exec(`DELETE FROM ${t}`);
   db.exec('DELETE FROM sync_borrados; DELETE FROM sync_muertas; DELETE FROM sync_alias');
   reiniciarBajada(db);
-  db.exec("DELETE FROM sync_estado WHERE clave IN ('ultimo_envio', 'ultima_sync')");
+  db.exec("DELETE FROM sync_estado WHERE clave IN ('ultimo_envio', 'ultima_sync', 'resubir')");
 }
 
 function reiniciarTodo(db) {
   enTransaccion(db, () => {
     db.exec('DELETE FROM sync_borrados; DELETE FROM sync_muertas; DELETE FROM sync_alias');
     reiniciarBajada(db);
-    db.exec("DELETE FROM sync_estado WHERE clave IN ('ultimo_envio', 'ultima_sync')");
+    db.exec("DELETE FROM sync_estado WHERE clave IN ('ultimo_envio', 'ultima_sync', 'resubir')");
   });
 }
 
@@ -119,11 +119,7 @@ export async function vincular(db, remoto, modo, { cuenta, forzar = false, backu
     enTransaccion(db, () => {
       vaciarSinBorrados(db);
       aplicarDescarga(db, docs, cursor);
-      // La app necesita al menos una persona (no debería pasar: la nube tiene datos).
-      if (cuantos(db, 'personas') === 0) {
-        db.prepare('INSERT INTO personas (nombre, color, avatar, creada) VALUES (?, ?, ?, ?)')
-          .run(PERSONA_INICIAL.nombre, PERSONA_INICIAL.color, PERSONA_INICIAL.avatar, new Date().toISOString());
-      }
+      asegurarPersona(db); // la app necesita al menos una persona (no debería hacer falta: la nube tiene datos)
     });
   } else {
     if (otra) reiniciarTodo(db);

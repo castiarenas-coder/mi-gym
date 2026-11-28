@@ -7,8 +7,8 @@ import express from 'express';
 import { DatabaseSync } from 'node:sqlite';
 import { backupDb } from './backup.js';
 import { openDb, versionActual } from './db.js';
-import { cambiosLocales } from './sync/documentos.js';
-import { reiniciarBajada } from './sync/motor.js';
+import { cambiosLocales, fusionarPersona, quitarPersonaFusionada, resolverAlias } from './sync/documentos.js';
+import { reiniciarBajada, leer } from './sync/motor.js';
 
 // Orden de inserción (padres antes que hijos). Para borrar se recorre al revés.
 export const TABLAS_USUARIO = ['personas', 'rutinas', 'rutina_dias', 'rutina_ejercicios', 'sesiones', 'sesion_ejercicios', 'series_hechas', 'medidas', 'perfil', 'favoritos', 'ajustes'];
@@ -57,7 +57,7 @@ export function importarDatos(db, datos, { backupsDir } = {}) {
   try {
     // Restaurar es una operación puramente local: nunca debe borrar nada de la nube. Los borrados que el
     // vaciado dispara (lápidas y personas muertas) se descartan al final; quedan solo los que ya existían.
-    const lapidasPrevias = db.prepare('SELECT tipo, clave, fecha FROM sync_borrados').all().map(f => ({ ...f }));
+    const lapidasPrevias = db.prepare('SELECT tipo, clave, fecha, por_alias FROM sync_borrados').all().map(f => ({ ...f }));
     const muertasPrevias = db.prepare('SELECT persona, fecha, viva FROM sync_muertas').all().map(f => ({ ...f }));
     for (const t of [...TABLAS_USUARIO].reverse()) db.exec(`DELETE FROM ${t}`);
     db.exec("UPDATE ejercicios SET favorito = 0, media_propia = NULL");
@@ -79,10 +79,23 @@ export function importarDatos(db, datos, { backupsDir } = {}) {
     for (const e of datos.ejercicios) marcar.run(e.media_propia ?? null, String(e.id));
     db.exec('DELETE FROM sync_borrados; DELETE FROM sync_muertas');
     const vivos = new Set(cambiosLocales(db, null).filter(d => !d.borrado).map(d => `${d.tipo}|${d.clave}`));
-    const lapida = db.prepare('INSERT INTO sync_borrados (tipo, clave, fecha) VALUES (?, ?, ?)');
-    for (const l of lapidasPrevias) if (!vivos.has(`${l.tipo}|${l.clave}`)) lapida.run(l.tipo, l.clave, l.fecha);
+    const lapida = db.prepare('INSERT INTO sync_borrados (tipo, clave, fecha, por_alias) VALUES (?, ?, ?, ?)');
+    for (const l of lapidasPrevias) if (!vivos.has(`${l.tipo}|${l.clave}`)) lapida.run(l.tipo, l.clave, l.fecha, l.por_alias);
     const muerta = db.prepare('INSERT INTO sync_muertas (persona, fecha, viva) VALUES (?, ?, ?)');
     for (const m of muertasPrevias) muerta.run(m.persona, m.fecha, m.viva);
+    // Alias de personas (unificar): si el respaldo trae a la persona de origen, o bien el alias ya está en la nube (se borra el
+    // local y la próxima bajada lo vuelve a aplicar y la fusiona) o bien nunca se subió (se unifica acá mismo, con marcas nuevas).
+    for (const a of db.prepare('SELECT origen, destino, actualizado FROM sync_alias').all().map(f => ({ ...f }))) {
+      const origen = db.prepare('SELECT id FROM personas WHERE uid = ?').get(a.origen);
+      if (!origen) continue;
+      const destino = db.prepare('SELECT id FROM personas WHERE uid = ?').get(resolverAlias(db, a.destino));
+      if (a.actualizado <= (leer(db, 'ultimo_envio') ?? '') || !destino) {
+        db.prepare('DELETE FROM sync_alias WHERE origen = ?').run(a.origen);
+      } else {
+        fusionarPersona(db, origen.id, destino.id);
+        quitarPersonaFusionada(db, origen.id, a.origen);
+      }
+    }
     // La bajada se reinicia: la próxima vuelta vuelve a bajar todo de la nube y "gana el más nuevo" lo junta con lo
     // restaurado. `ultimo_envio` se conserva (lo ya enviado no se vuelve a mandar; lo restaurado más nuevo, sí).
     reiniciarBajada(db);

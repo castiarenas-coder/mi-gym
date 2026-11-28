@@ -22,6 +22,7 @@
 // Los errores del remoto se propagan tal cual: quien llama decide el mensaje y el reintento.
 
 import { cambiosLocales, aplicarDocumento } from './documentos.js';
+import { claveSembrado } from '../plantillas.js';
 
 const LOTE_SUBIDA = 200;
 const MAX_PAGINAS = 1000; // freno de seguridad contra un remoto que nunca termina
@@ -44,6 +45,17 @@ export const guardar = (db, clave, valor) => db.prepare(
   'INSERT INTO sync_estado (clave, valor) VALUES (?, ?) ON CONFLICT (clave) DO UPDATE SET valor = excluded.valor').run(clave, valor);
 const leerJson = (db, clave, defecto) => { try { return JSON.parse(leer(db, clave)) ?? defecto; } catch { return defecto; } };
 
+/**
+ * La app necesita al menos una persona: si no queda ninguna (se borraron o se unificaron en una muerta) se crea la
+ * persona por defecto, con el marcador para que al arrancar no se le siembren plantillas. Devuelve si la creó.
+ */
+export function asegurarPersona(db) {
+  if (db.prepare('SELECT COUNT(*) AS n FROM personas').get().n > 0) return false;
+  const id = Number(db.prepare('INSERT INTO personas (nombre, creada) VALUES (?, ?)').run('Yo', new Date().toISOString()).lastInsertRowid);
+  db.prepare('INSERT OR IGNORE INTO ajustes (clave, valor) VALUES (?, ?)').run(claveSembrado(id), new Date().toISOString());
+  return true;
+}
+
 /** Olvida lo bajado (cursor y lo que depende de él): la próxima vuelta vuelve a bajar todo de la nube. */
 export function reiniciarBajada(db) {
   db.exec("DELETE FROM sync_estado WHERE clave IN ('cursor', 'eco', 'pendientes', 'rechazados')");
@@ -61,10 +73,17 @@ async function subirCambios(db, remoto, lote) {
   const eco = leerJson(db, 'eco', {});
   // Lo recién bajado aparece como "cambio local"; se descarta solo si sigue siendo exactamente esa versión.
   const docs = cambiosLocales(db, ultimo).filter(d => eco[claveDe(d)] !== d.actualizado);
+  // Filas movidas de clave por una unificación que conservan su marca vieja: se suben igual (la nube se queda con lo más nuevo).
+  const resubir = new Set(leerJson(db, 'resubir', []));
+  if (resubir.size) {
+    const ya = new Set(docs.map(claveDe));
+    for (const d of cambiosLocales(db, null)) if (resubir.has(claveDe(d)) && !ya.has(claveDe(d))) docs.push(d);
+  }
   for (let i = 0; i < docs.length; i += lote) await remoto.subir(docs.slice(i, i + lote));
   const nuevo = docs.reduce((m, d) => (d.actualizado > m ? d.actualizado : m), ultimo ?? '');
   // La marca avanza solo hasta lo realmente subido (nunca hasta un reloj ajeno), y recién ahora, con todo subido.
   if (docs.length) guardar(db, 'ultimo_envio', nuevo);
+  if (resubir.size) db.exec("DELETE FROM sync_estado WHERE clave = 'resubir'");
   const vigentes = Object.fromEntries(Object.entries(eco).filter(([, act]) => act > (nuevo || '')));
   if (Object.keys(vigentes).length !== Object.keys(eco).length) guardar(db, 'eco', JSON.stringify(vigentes));
   return docs.length;
@@ -172,8 +191,10 @@ export async function sincronizar(db, remoto, { ahora, lote = LOTE_SUBIDA } = {}
     cursor = nuevoCursor;
   }
 
+  // Sin ninguna persona (borradas en otro equipo, unificadas en una muerta) se crea la de siempre; también se sube ya.
+  const creada = completa && asegurarPersona(db);
   // Procesar lo bajado puede dejar cambios propios (una persona que revive, una sesión degradada): se suben ya.
-  if (procesados > 0) subidos += await subirCambios(db, remoto, lote);
+  if (procesados > 0 || creada) subidos += await subirCambios(db, remoto, lote);
 
   guardar(db, 'ultima_sync', ahora ?? new Date().toISOString());
   const out = { subidos, bajados, enEspera: pendientes.length, rechazados: Object.keys(rechazados).length };

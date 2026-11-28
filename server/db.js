@@ -289,6 +289,8 @@ export const MIGRACIONES = [
         tipo TEXT NOT NULL,
         clave TEXT NOT NULL,
         fecha TEXT NOT NULL,
+        -- 1 = lápida de la clave vieja de un documento que unificar movió a otra persona (no es un borrado del usuario)
+        por_alias INTEGER NOT NULL DEFAULT 0,
         PRIMARY KEY (tipo, clave)
       );
       CREATE TABLE sync_estado (

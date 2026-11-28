@@ -7,14 +7,17 @@ import { config } from './config.js';
 
 export function listarBackups(backupsDir) {
   if (!fs.existsSync(backupsDir)) return [];
-  return fs.readdirSync(backupsDir).filter(f => /^mi_gym-.*\.db$/.test(f)).sort();
+  // Se ordena por el nombre sin extensión: `...-1000` va antes que `...-1000-02` (el mismo minuto, repetido).
+  const clave = (f) => f.replace(/\.db$/, '');
+  return fs.readdirSync(backupsDir).filter(f => /^mi_gym-.*\.db$/.test(f)).sort((a, b) => (clave(a) < clave(b) ? -1 : clave(a) > clave(b) ? 1 : 0));
 }
 
 export function backupDb(db, backupsDir, { keep = 30, now = new Date() } = {}) {
   fs.mkdirSync(backupsDir, { recursive: true });
   const stamp = now.toISOString().slice(0, 16).replace(/[-:]/g, '').replace('T', '-');
-  const target = path.join(backupsDir, `mi_gym-${stamp}.db`);
-  fs.rmSync(target, { force: true });
+  // Nunca se pisa un respaldo existente (dos en el mismo minuto): se agrega un sufijo -02, -03...
+  let target = path.join(backupsDir, `mi_gym-${stamp}.db`);
+  for (let n = 2; fs.existsSync(target); n++) target = path.join(backupsDir, `mi_gym-${stamp}-${String(n).padStart(2, '0')}.db`);
   db.exec(`VACUUM INTO '${target.replace(/'/g, "''")}'`);
   const todos = listarBackups(backupsDir);
   for (const viejo of todos.slice(0, Math.max(0, todos.length - keep))) fs.rmSync(path.join(backupsDir, viejo), { force: true });

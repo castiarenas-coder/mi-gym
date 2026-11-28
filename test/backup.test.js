@@ -41,3 +41,24 @@ test('restoreDb rechaza un archivo que no es un respaldo', () => {
   fs.writeFileSync(path.join(dir, 'x.db'), 'basura');
   assert.throws(() => restoreDb(path.join(dir, 'x.db'), path.join(dir, 'a.db'), path.join(dir, 'b')));
 });
+
+test('backupDb nunca pisa un respaldo del mismo minuto y la rotación conserva los más nuevos', () => {
+  const dir = tmp();
+  const db = openDb(path.join(dir, 'a.db'));
+  const destino = path.join(dir, 'b');
+  const ahora = new Date(Date.UTC(2026, 0, 1, 10, 0, 5));
+  const a = backupDb(db, destino, { now: ahora });
+  db.prepare("INSERT INTO medidas (persona_id, fecha, peso_kg) VALUES (1, '2026-01-01', 80)").run();
+  const b = backupDb(db, destino, { now: ahora });
+  assert.notEqual(a, b);
+  const lista = listarBackups(destino);
+  assert.equal(lista.length, 2);
+  assert.ok(lista.every(f => /^mi_gym-.*.db$/.test(f)));
+  const primero = openDb(a);
+  assert.equal(primero.prepare('SELECT COUNT(*) n FROM medidas').get().n, 0);
+  primero.close();
+  const c = backupDb(db, destino, { now: ahora, keep: 2 });
+  assert.equal(listarBackups(destino).length, 2);
+  assert.ok(fs.existsSync(c) && fs.existsSync(b) && !fs.existsSync(a));
+  db.close();
+});

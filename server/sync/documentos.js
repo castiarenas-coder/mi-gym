@@ -55,7 +55,8 @@ export function cambiosLocales(db, desde) {
   }
 
   // Personas unificadas: siguen vivas en la nube como alias de la conservada.
-  for (const a of db.prepare('SELECT * FROM sync_alias WHERE actualizado > ?').all(d))
+  for (const a of db.prepare(`SELECT * FROM sync_alias a WHERE a.actualizado > ? AND NOT EXISTS (
+    SELECT 1 FROM sync_muertas m WHERE m.persona = a.origen AND m.viva = 0 AND m.fecha > a.actualizado)`).all(d))
     out.push(doc('persona', a.origen, a.actualizado, { ...JSON.parse(a.datos), unificada_en: a.destino }));
 
   for (const r of db.prepare(
@@ -84,8 +85,8 @@ export function cambiosLocales(db, desde) {
     'SELECT f.*, p.uid AS persona_uid FROM favoritos f JOIN personas p ON p.id = f.persona_id WHERE f.actualizado > ?').all(d))
     out.push(doc('favorito', `${f.persona_uid}|${f.ejercicio_id}`, f.actualizado, { persona: f.persona_uid, ejercicio_id: f.ejercicio_id }));
 
-  for (const b of db.prepare('SELECT tipo, clave, fecha FROM sync_borrados WHERE fecha > ?').all(d))
-    out.push({ tipo: b.tipo, clave: b.clave, actualizado: b.fecha, borrado: true, datos: null });
+  for (const b of db.prepare('SELECT tipo, clave, fecha, por_alias FROM sync_borrados WHERE fecha > ?').all(d))
+    out.push({ tipo: b.tipo, clave: b.clave, actualizado: b.fecha, borrado: true, datos: b.por_alias ? { por_alias: true } : null });
 
   return out;
 }
@@ -351,6 +352,21 @@ export function aplicarDocumento(db, d) {
 
 // Los alias de persona (unificadas) se resuelven antes que el camino común.
 function despachar(db, d) {
+  if (d.borrado) {
+    if (d.tipo === 'persona') {
+      // Una lápida de la persona más nueva que su alias lo deshace (gana el más nuevo); una más vieja no cuenta.
+      const alias = db.prepare('SELECT actualizado FROM sync_alias WHERE origen = ?').get(d.clave);
+      if (alias) {
+        if (d.actualizado <= alias.actualizado) return 'ignorado';
+        db.prepare('DELETE FROM sync_alias WHERE origen = ?').run(d.clave);
+      }
+    } else if (!d.datos?.por_alias && (d.tipo === 'medida' || d.tipo === 'perfil' || d.tipo === 'favorito')) {
+      // (Las lápidas por_alias son las que deja unificar al mover un documento de clave: no son un borrado del usuario.)
+      const [uid, resto] = d.clave.split(/\|(.*)/s);
+      const destino = resolverAlias(db, uid);
+      if (destino !== uid) return borrarHijoDeAlias(db, d, destino, resto);
+    }
+  }
   if (!d.borrado && d.tipo === 'persona') {
     if (d.datos?.unificada_en) return aplicarAlias(db, d);
     const alias = db.prepare('SELECT actualizado FROM sync_alias WHERE origen = ?').get(d.clave);
@@ -371,48 +387,56 @@ function despachar(db, d) {
 
 function aplicarComun(db, d) {
   const m = MANEJADORES[d.tipo];
-  {
-    const local = m.local(db, d.clave);
-    let res;
-    if (d.borrado) {
-      if (!local) {
-        // Una persona que nunca estuvo acá también queda registrada como muerta (para descartar o esperar a sus hijos).
-        if (d.tipo === 'persona') marcarMuerta(db, d.clave, d.actualizado);
-        res = 'ignorado';
-      } else if (local.actualizado > d.actualizado) res = 'ignorado';
-      else res = m.borrar(db, d, local) ?? 'aplicado';
-    } else {
-      const borradoLocal = lapida(db, d.tipo, d.clave);
-      const murio = d.tipo === 'persona' ? muerta(db, d.clave) : null;
-      // Un hijo que no es posterior al borrado de su persona (haya revivido o no) está muerto.
-      const hijoMuerto = d.tipo !== 'persona' && d.datos?.persona
-        && fechaMuerte(db, d.datos.persona) >= d.actualizado;
-      // Con la misma fecha gana el borrado.
-      if (hijoMuerto || (local && local.actualizado >= d.actualizado) || (borradoLocal && borradoLocal >= d.actualizado) || (murio && murio >= d.actualizado)) res = 'ignorado';
-      else {
-        res = m.escribir(db, d, local);
-        if (d.tipo === 'persona' && res === 'aplicado') {
-          // La persona vive sobre un borrado: el del documento (que este equipo quizá no vio) o el que conocía acá.
-          const desde = d.datos?.muerta_desde ?? null;
-          const conocida = fechaMuerte(db, d.clave); // viva o no: un documento sin `muerta_desde` no puede olvidarla
-          const efectivo = [desde, conocida].filter(Boolean).sort().at(-1);
-          if (efectivo) {
-            matarAnteriores(db, personaId(db, d.clave), d.clave, efectivo);
-            reviveSobre(db, d.clave, efectivo);
-            // Si el borrado conocido acá no viajaba en el documento, hay que difundirlo: se re-estampa para subirla.
-            if (conocida > (desde ?? '')) {
-              db.prepare('UPDATE personas SET actualizado = ? WHERE uid = ?').run(ahoraDespues(db, d.actualizado), d.clave);
-              res = 'degradado';
-            }
+  const local = m.local(db, d.clave);
+  let res;
+  if (d.borrado) {
+    if (!local) {
+      // Una persona que nunca estuvo acá también queda registrada como muerta (para descartar o esperar a sus hijos).
+      if (d.tipo === 'persona') marcarMuerta(db, d.clave, d.actualizado);
+      res = 'ignorado';
+    } else if (local.actualizado > d.actualizado) res = 'ignorado';
+    else res = m.borrar(db, d, local) ?? 'aplicado';
+  } else {
+    const borradoLocal = lapida(db, d.tipo, d.clave);
+    const murio = d.tipo === 'persona' ? muerta(db, d.clave) : null;
+    // Un hijo que no es posterior al borrado de su persona (haya revivido o no) está muerto.
+    const hijoMuerto = d.tipo !== 'persona' && d.datos?.persona
+      && fechaMuerte(db, d.datos.persona) >= d.actualizado;
+    // Con la misma fecha gana el borrado.
+    if (hijoMuerto || (local && local.actualizado >= d.actualizado) || (borradoLocal && borradoLocal >= d.actualizado) || (murio && murio >= d.actualizado)) res = 'ignorado';
+    else {
+      res = m.escribir(db, d, local);
+      if (d.tipo === 'persona' && res === 'aplicado') {
+        // La persona vive sobre un borrado: el del documento (que este equipo quizá no vio) o el que conocía acá.
+        const desde = d.datos?.muerta_desde ?? null;
+        const conocida = fechaMuerte(db, d.clave); // viva o no: un documento sin `muerta_desde` no puede olvidarla
+        const efectivo = [desde, conocida].filter(Boolean).sort().at(-1);
+        if (efectivo) {
+          matarAnteriores(db, personaId(db, d.clave), d.clave, efectivo);
+          reviveSobre(db, d.clave, efectivo);
+          // Si el borrado conocido acá no viajaba en el documento, hay que difundirlo: se re-estampa para subirla.
+          if (conocida > (desde ?? '')) {
+            db.prepare('UPDATE personas SET actualizado = ? WHERE uid = ?').run(ahoraDespues(db, d.actualizado), d.clave);
+            res = 'degradado';
           }
         }
       }
     }
-    return res;
   }
+  return res;
 }
 
 // ---------- alias de persona (unificar) ----------
+
+/**
+ * Claves ("tipo|clave") de documentos que hay que subir aunque su marca no sea posterior al último envío: las filas que un
+ * receptor movió de clave conservando su marca. Si la nube ya tiene algo igual o más nuevo, la subida no cambia nada.
+ */
+export function marcarResubir(db, claves) {
+  const previas = (() => { try { return JSON.parse(db.prepare("SELECT valor FROM sync_estado WHERE clave = 'resubir'").get()?.valor) ?? []; } catch { return []; } })();
+  const todas = [...new Set([...previas, ...claves])];
+  db.prepare("INSERT INTO sync_estado (clave, valor) VALUES ('resubir', ?) ON CONFLICT (clave) DO UPDATE SET valor = excluded.valor").run(JSON.stringify(todas));
+}
 
 /** Persona a la que apunta `uid` tras seguir los alias (el propio uid si no es alias). Los ciclos no existen: ver aplicarAlias. */
 export function resolverAlias(db, uid) {
@@ -431,11 +455,20 @@ export function registrarAlias(db, origen, destino, actualizado, datos) {
     .run(origen, destino, actualizado, JSON.stringify(datos));
 }
 
-/** Borra la fila de una persona fusionada sin dejar lápida ni persona muerta: unificar no es borrar. */
+/**
+ * Borra la fila de una persona (y lo que le quede) sin dejar lápidas ni persona muerta: unificar no es borrar, y si la
+ * conservada está muerta, "gana el más nuevo" ya decidió y no hay nada que avisar. Tras fusionarla no le queda nada.
+ */
 export function quitarPersonaFusionada(db, id, uid) {
+  const claves = [['persona', uid],
+    ...db.prepare('SELECT uid FROM rutinas WHERE persona_id = ?').all(id).map(r => ['rutina', r.uid]),
+    ...db.prepare('SELECT uid FROM sesiones WHERE persona_id = ?').all(id).map(r => ['sesion', r.uid]),
+    ...db.prepare('SELECT fecha FROM medidas WHERE persona_id = ?').all(id).map(r => ['medida', `${uid}|${r.fecha}`]),
+    ...db.prepare('SELECT 1 FROM perfil WHERE persona_id = ?').all(id).map(() => ['perfil', uid]),
+    ...db.prepare('SELECT ejercicio_id FROM favoritos WHERE persona_id = ?').all(id).map(r => ['favorito', `${uid}|${r.ejercicio_id}`])];
   db.prepare('DELETE FROM ajustes WHERE clave = ?').run(claveSembrado(id));
   db.prepare('DELETE FROM personas WHERE id = ?').run(id);
-  db.prepare("DELETE FROM sync_borrados WHERE tipo = 'persona' AND clave = ?").run(uid);
+  for (const [tipo, clave] of claves) quitarLapida(db, tipo, clave);
   db.prepare('DELETE FROM sync_muertas WHERE persona = ?').run(uid);
 }
 
@@ -448,19 +481,36 @@ const mayorDe = (...xs) => xs.filter(Boolean).sort().at(-1);
  * Choques por clave natural: medidas (misma fecha) y perfil, gana la fila con `actualizado` más nuevo; favoritos se suman.
  * Las plantillas de ejemplo sin tocar de la de origen se descartan si el destino ya tiene una con ese nombre.
  * Todo lo movido se re-estampa con una marca posterior a lo que ya está en la nube (para que suba bajo la persona
- * nueva) y las claves naturales viejas quedan con lápida de marca posterior a su documento.
+ * nueva) y las claves naturales viejas quedan con lápida de marca posterior a su documento; la fila nueva lleva una marca
+ * todavía posterior (1 ms) a esa lápida: la lápida vieja, traducida a la clave nueva, no la borra.
+ * Quien unifica re-estampa también la fila que ya estaba en el destino cuando hubo choque (gane la de origen o no): su decisión
+ * pisa a lo que otros equipos tengan de las dos y todos convergen en ella.
+ * Con `receptor` (el equipo se entera del alias por la nube) las claves naturales se mueven tal cual: conservan su marca
+ * original y no dejan lápida. Lo ya subido lo convierte quien lo vea (aplicarHijoDeAlias) y lo no subido sube solo con su
+ * marca; así una lápida ajena más vieja que la fila (un borrado de otro equipo) sigue pudiendo borrarla.
  */
-export function fusionarPersona(db, origenId, destinoId) {
+export function fusionarPersona(db, origenId, destinoId, { receptor = false } = {}) {
   const origenUid = db.prepare('SELECT uid FROM personas WHERE id = ?').get(origenId).uid;
   const t = ahoraDespues(db, PISO);
   let tocado = 0;
-  const lapidaPosterior = (tipo, clave, piso) => db.prepare('UPDATE sync_borrados SET fecha = MAX(fecha, ?) WHERE tipo = ? AND clave = ?').run(piso, tipo, clave);
+  // Marca de una fila natural movida: la del que unifica es posterior a todo; la del receptor es la que traía.
+  const estampar = (tabla, donde, params, original, piso) => db.prepare(`UPDATE ${tabla} SET actualizado = ${receptor ? '?' : 'MAX(actualizado, ?)'} WHERE ${donde}`)
+    .run(receptor ? original : masUno(db, piso), ...params);
+  const cerrarClave = (tipo, clave, piso) => (receptor ? quitarLapida(db, tipo, clave) : lapidaPosterior(tipo, clave, piso));
+  const lapidaPosterior = (tipo, clave, piso, porAlias = 1) => db.prepare('UPDATE sync_borrados SET fecha = MAX(fecha, ?), por_alias = ? WHERE tipo = ? AND clave = ?').run(piso, porAlias, tipo, clave);
+
+  // Lo de la persona de origen que no es posterior al borrado conocido de la conservada está muerto ("gana el más nuevo"), igual
+  // que lo que ella ya tenía: así el resultado no depende de si llegó antes o después de enterarse del borrado.
+  const destinoUid = db.prepare('SELECT uid FROM personas WHERE id = ?').get(destinoId).uid;
+  const aSubir = []; // receptor: filas movidas con su marca original que igual hay que (re)subir bajo la clave nueva
+  const muerte = fechaMuerte(db, destinoUid);
+  if (muerte) matarAnteriores(db, origenId, origenUid, muerte);
 
   const nombresDestino = new Set(db.prepare('SELECT nombre FROM rutinas WHERE persona_id = ?').all(destinoId).map(r => r.nombre));
   for (const r of db.prepare('SELECT id, uid, nombre, descripcion, actualizado FROM rutinas WHERE persona_id = ?').all(origenId)) {
     if (!nombresDestino.has(r.nombre) || !esPlantillaSinTocar(db, r)) continue;
     db.prepare('DELETE FROM rutinas WHERE id = ?').run(r.id);
-    lapidaPosterior('rutina', r.uid, mayorDe(t, masUno(db, r.actualizado)));
+    lapidaPosterior('rutina', r.uid, mayorDe(t, masUno(db, r.actualizado)), 0);
     tocado++;
   }
 
@@ -485,9 +535,10 @@ export function fusionarPersona(db, origenId, destinoId) {
       db.prepare('UPDATE medidas SET peso_kg = ?, cintura = ?, pecho = ?, brazo = ?, pierna = ?, grasa_pct = ? WHERE persona_id = ? AND fecha = ?')
         .run(m.peso_kg, m.cintura, m.pecho, m.brazo, m.pierna, m.grasa_pct, destinoId, m.fecha);
     }
-    if (gana) db.prepare('UPDATE medidas SET actualizado = MAX(actualizado, ?) WHERE persona_id = ? AND fecha = ?').run(piso, destinoId, m.fecha);
+    if (receptor && gana) aSubir.push(`medida|${destinoUid}|${m.fecha}`);
+    if (gana || (previa && !receptor)) estampar('medidas', 'persona_id = ? AND fecha = ?', [destinoId, m.fecha], m.actualizado, piso);
     db.prepare('DELETE FROM medidas WHERE persona_id = ? AND fecha = ?').run(origenId, m.fecha);
-    lapidaPosterior('medida', `${origenUid}|${m.fecha}`, piso);
+    cerrarClave('medida', `${origenUid}|${m.fecha}`, piso);
     tocado++;
   }
 
@@ -504,23 +555,24 @@ export function fusionarPersona(db, origenId, destinoId) {
       db.prepare('UPDATE perfil SET altura = ?, edad = ?, sexo = ?, actividad = ?, objetivo = ?, fecha_nacimiento = ? WHERE persona_id = ?')
         .run(...datos, destinoId);
     }
-    if (gana) db.prepare('UPDATE perfil SET actualizado = MAX(actualizado, ?) WHERE persona_id = ?').run(piso, destinoId);
+    if (receptor && gana) aSubir.push(`perfil|${destinoUid}`);
+    if (gana || (previo && !receptor)) estampar('perfil', 'persona_id = ?', [destinoId], perfil.actualizado, piso);
     db.prepare('DELETE FROM perfil WHERE persona_id = ?').run(origenId);
-    lapidaPosterior('perfil', origenUid, piso);
+    cerrarClave('perfil', origenUid, piso);
     tocado++;
   }
 
   for (const f of db.prepare('SELECT ejercicio_id, actualizado FROM favoritos WHERE persona_id = ?').all(origenId)) {
     const previo = db.prepare('SELECT actualizado FROM favoritos WHERE persona_id = ? AND ejercicio_id = ?').get(destinoId, f.ejercicio_id);
     const piso = mayorDe(t, masUno(db, f.actualizado), previo && masUno(db, previo.actualizado));
-    if (!previo) {
-      db.prepare('INSERT INTO favoritos (persona_id, ejercicio_id) VALUES (?, ?)').run(destinoId, f.ejercicio_id);
-      db.prepare('UPDATE favoritos SET actualizado = MAX(actualizado, ?) WHERE persona_id = ? AND ejercicio_id = ?').run(piso, destinoId, f.ejercicio_id);
-    }
+    if (!previo) db.prepare('INSERT INTO favoritos (persona_id, ejercicio_id) VALUES (?, ?)').run(destinoId, f.ejercicio_id);
+    if (receptor && !previo) aSubir.push(`favorito|${destinoUid}|${f.ejercicio_id}`);
+    if (!previo || !receptor) estampar('favoritos', 'persona_id = ? AND ejercicio_id = ?', [destinoId, f.ejercicio_id], f.actualizado, piso);
     db.prepare('DELETE FROM favoritos WHERE persona_id = ? AND ejercicio_id = ?').run(origenId, f.ejercicio_id);
-    lapidaPosterior('favorito', `${origenUid}|${f.ejercicio_id}`, piso);
+    cerrarClave('favorito', `${origenUid}|${f.ejercicio_id}`, piso);
     tocado++;
   }
+  if (aSubir.length) marcarResubir(db, aSubir);
   return tocado;
 }
 
@@ -533,16 +585,22 @@ function aplicarAlias(db, d) {
   if (typeof destino !== 'string' || !(destino < origen)) return 'ignorado';
   const previo = db.prepare('SELECT actualizado FROM sync_alias WHERE origen = ?').get(origen);
   if (previo && previo.actualizado >= d.actualizado) return 'ignorado';
-  if ((lapida(db, 'persona', origen) ?? '') >= d.actualizado) return 'ignorado';
+  if (mayorDe(lapida(db, 'persona', origen), fechaMuerte(db, origen)) >= d.actualizado) return 'ignorado';
   const final = resolverAlias(db, destino);
   const idOrigen = personaId(db, origen);
   const idDestino = personaId(db, final);
-  if (idOrigen != null && idDestino == null) return 'en_espera';
+  // La conservada murió (gana el más nuevo): no hay a dónde pasar lo de la persona de origen, se quita sin rastro.
+  const destinoMuerto = idDestino == null && muerta(db, final) != null;
+  if (idOrigen != null && idDestino == null && !destinoMuerto) return 'en_espera';
   const { nombre, color, avatar, creada } = d.datos;
   registrarAlias(db, origen, destino, d.actualizado, { nombre, color, avatar, creada });
   quitarLapida(db, 'persona', origen);
   if (idOrigen == null) return 'aplicado';
-  const tocado = fusionarPersona(db, idOrigen, idDestino);
+  if (destinoMuerto) {
+    quitarPersonaFusionada(db, idOrigen, origen);
+    return 'aplicado';
+  }
+  const tocado = fusionarPersona(db, idOrigen, idDestino, { receptor: true });
   quitarPersonaFusionada(db, idOrigen, origen);
   return tocado ? 'degradado' : 'aplicado';
 }
@@ -550,7 +608,9 @@ function aplicarAlias(db, d) {
 // Un documento vivo que nombra a una persona unificada se aplica bajo la conservada. Queda re-estampado (se sube con
 // la persona nueva) y, si cambia de clave natural, la clave vieja se borra.
 function aplicarHijoDeAlias(db, d, destino) {
-  if (fechaMuerte(db, d.datos.persona) >= d.actualizado) return 'ignorado';
+  if (fechaMuerte(db, d.datos.persona) >= d.actualizado || fechaMuerte(db, destino) >= d.actualizado) return documentoMuerto(db, d);
+  // La conservada murió y no está acá: "gana el más nuevo" ya decidió, no hay a quién esperar (no se queda en la lista de espera).
+  if (personaId(db, destino) == null && muerta(db, destino) != null) return documentoMuerto(db, d);
   const x = { ...d.datos, persona: destino };
   const clave = d.tipo === 'medida' ? `${destino}|${x.fecha}`
     : d.tipo === 'perfil' ? destino
@@ -558,12 +618,36 @@ function aplicarHijoDeAlias(db, d, destino) {
   const res = aplicarComun(db, { ...d, clave, datos: x });
   if (res !== 'aplicado' && res !== 'degradado') return res;
   const t = ahoraDespues(db, d.actualizado);
+  const tFila = clave !== d.clave ? masUno(db, t) : t; // con clave nueva, posterior a la lápida de la vieja
   const pid = personaId(db, destino);
   if (d.tipo === 'rutina') db.prepare('UPDATE rutinas SET actualizado = MAX(actualizado, ?) WHERE uid = ?').run(t, d.clave);
   else if (d.tipo === 'sesion') db.prepare('UPDATE sesiones SET actualizado = MAX(actualizado, ?) WHERE uid = ?').run(t, d.clave);
-  else if (d.tipo === 'medida') db.prepare('UPDATE medidas SET actualizado = MAX(actualizado, ?) WHERE persona_id = ? AND fecha = ?').run(t, pid, x.fecha);
-  else if (d.tipo === 'perfil') db.prepare('UPDATE perfil SET actualizado = MAX(actualizado, ?) WHERE persona_id = ?').run(t, pid);
-  else db.prepare('UPDATE favoritos SET actualizado = MAX(actualizado, ?) WHERE persona_id = ? AND ejercicio_id = ?').run(t, pid, x.ejercicio_id);
-  if (clave !== d.clave) db.prepare('INSERT OR REPLACE INTO sync_borrados (tipo, clave, fecha) VALUES (?, ?, ?)').run(d.tipo, d.clave, t);
+  else if (d.tipo === 'medida') db.prepare('UPDATE medidas SET actualizado = MAX(actualizado, ?) WHERE persona_id = ? AND fecha = ?').run(tFila, pid, x.fecha);
+  else if (d.tipo === 'perfil') db.prepare('UPDATE perfil SET actualizado = MAX(actualizado, ?) WHERE persona_id = ?').run(tFila, pid);
+  else db.prepare('UPDATE favoritos SET actualizado = MAX(actualizado, ?) WHERE persona_id = ? AND ejercicio_id = ?').run(tFila, pid, x.ejercicio_id);
+  if (clave !== d.clave) db.prepare('INSERT OR REPLACE INTO sync_borrados (tipo, clave, fecha, por_alias) VALUES (?, ?, ?, 1)').run(d.tipo, d.clave, t);
   return 'degradado';
+}
+
+// Borrado (de una medida, perfil o favorito) con la clave de una persona unificada: se traduce a la clave de la conservada.
+// Si es más nuevo que lo local, borra y deja lápida (más nueva) de la clave nueva para que se propague.
+function borrarHijoDeAlias(db, d, destino, resto) {
+  const clave = d.tipo === 'perfil' ? destino : `${destino}|${resto}`;
+  const res = aplicarComun(db, { ...d, clave });
+  if (res !== 'aplicado') return res;
+  db.prepare('INSERT OR REPLACE INTO sync_borrados (tipo, clave, fecha) VALUES (?, ?, ?)').run(d.tipo, clave, ahoraDespues(db, d.actualizado));
+  return 'degradado';
+}
+
+// La versión más nueva de una rutina o sesión pertenece a una persona muerta: el documento está muerto. Si acá queda una
+// versión más vieja (de antes de que se supiera) se borra y se deja lápida con la misma marca del documento, para que los
+// que dependen de él (las sesiones de una rutina) no queden esperando. La nube ya tiene ese documento: no hay nada que subir.
+function documentoMuerto(db, d) {
+  if (d.tipo !== 'rutina' && d.tipo !== 'sesion') return 'ignorado';
+  const local = MANEJADORES[d.tipo].local(db, d.clave);
+  if (local && local.actualizado > d.actualizado) return 'ignorado';
+  if (local) MANEJADORES[d.tipo].borrar(db, d, local);
+  db.prepare('INSERT INTO sync_borrados (tipo, clave, fecha) VALUES (?, ?, ?) ON CONFLICT (tipo, clave) DO UPDATE SET fecha = MAX(fecha, excluded.fecha)')
+    .run(d.tipo, d.clave, d.actualizado);
+  return 'aplicado';
 }
