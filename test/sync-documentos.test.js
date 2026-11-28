@@ -4,7 +4,11 @@ import { openDb } from '../server/db.js';
 import { cambiosLocales, aplicarDocumento } from '../server/sync/documentos.js';
 
 // Los cortes se toman con el reloj de la base (el mismo que escribe `actualizado`), no con el de JS.
-const corteDb = (db) => db.prepare("SELECT strftime('%Y-%m-%dT%H:%M:%fZ','now') t").get().t;
+// (las marcas son monótonas: varios hijos insertados en el mismo instante adelantan al padre unos milisegundos, así que
+// el corte es el mayor entre el reloj y todas las marcas existentes)
+const corteDb = (db) => db.prepare(`SELECT MAX(strftime('%Y-%m-%dT%H:%M:%fZ','now'), COALESCE((SELECT MAX(a) FROM (
+  SELECT MAX(actualizado) a FROM personas UNION ALL SELECT MAX(actualizado) FROM rutinas UNION ALL SELECT MAX(actualizado) FROM sesiones
+  UNION ALL SELECT MAX(actualizado) FROM medidas UNION ALL SELECT MAX(actualizado) FROM perfil UNION ALL SELECT MAX(actualizado) FROM favoritos)), '')) t`).get().t;
 const esperar = (ms = 5) => { const t = Date.now() + ms; while (Date.now() < t); };
 
 function base() {
@@ -421,4 +425,27 @@ test('borrar una persona remota deja la persona muerta con la fecha del borrado 
   assert.equal(aplicarDocumento(b, { tipo: 'persona', clave: ana, actualizado: T, borrado: true, datos: null }), 'aplicado');
   assert.deepEqual(cambiosLocales(b, corte).filter(d => d.borrado), []);
   assert.equal(filas(b, 'SELECT fecha FROM sync_muertas WHERE persona = ?', ana)[0].fecha, T);
+});
+
+// ---------- marcas monótonas ----------
+
+test('una edición local sobre una marca futura la supera por un milisegundo (también cruzando el segundo)', () => {
+  const db = conDatos();
+  db.exec("UPDATE rutinas SET actualizado = '2099-01-01T00:00:59.999Z'");
+  db.exec("UPDATE rutinas SET nombre = 'otra'");
+  assert.equal(filas(db, 'SELECT actualizado FROM rutinas')[0].actualizado, '2099-01-01T00:01:00.000Z');
+  db.exec("UPDATE personas SET actualizado = '2099-05-05T10:00:00.500Z' WHERE nombre = 'Ana'");
+  db.exec("UPDATE personas SET color = '#123' WHERE nombre = 'Ana'");
+  assert.equal(filas(db, "SELECT actualizado FROM personas WHERE nombre = 'Ana'")[0].actualizado, '2099-05-05T10:00:00.501Z');
+  db.exec("UPDATE medidas SET actualizado = '2099-01-01T00:00:00.000Z'");
+  db.exec('UPDATE medidas SET peso_kg = 99');
+  assert.equal(filas(db, 'SELECT actualizado FROM medidas')[0].actualizado, '2099-01-01T00:00:00.001Z');
+  // Un cambio en un hijo también supera la marca futura del padre.
+  db.exec("UPDATE rutinas SET actualizado = '2099-02-02T00:00:00.000Z'");
+  db.exec("UPDATE rutina_dias SET nombre = 'nuevo' WHERE id = 100");
+  assert.equal(filas(db, 'SELECT actualizado FROM rutinas')[0].actualizado, '2099-02-02T00:00:00.001Z');
+  // Con una marca pasada manda el reloj.
+  db.exec("UPDATE rutinas SET actualizado = '2000-01-01T00:00:00.000Z'");
+  db.exec("UPDATE rutinas SET nombre = 'x'");
+  assert.ok(filas(db, 'SELECT actualizado FROM rutinas')[0].actualizado > '2020');
 });

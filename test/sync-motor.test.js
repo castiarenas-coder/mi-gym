@@ -383,3 +383,75 @@ test('la lista de espera tiene tope (se descartan las más viejas)', async (t) =
   assert.equal(r.enEspera, 500);
   assert.equal(JSON.parse(estado(A, 'pendientes')).length, 500);
 });
+
+test('una persona editada sin saber del borrado no pisa a la que ya revivió: lo anterior al borrado muere en todos', async () => {
+  const [A, B, C, remoto] = [nuevaBase(), nuevaBase(), nuevaBase(), crearRemotoEnMemoria()];
+  const pid = agregarAna(A);
+  const uid = A.prepare('SELECT uid FROM personas WHERE id = ?').get(pid).uid;
+  await converger([A, B, C], remoto, 2);
+  const idDe = (db) => db.prepare('SELECT id FROM personas WHERE uid = ?').get(uid).id;
+  esperar(5);
+  B.exec(`INSERT INTO favoritos (persona_id, ejercicio_id) VALUES (${idDe(B)}, 'A')`); // B, sin conexión: algo viejo
+  esperar(5);
+  A.exec(`DELETE FROM personas WHERE id = ${pid}`); // el borrado (T)
+  esperar(5);
+  await sincronizar(A, remoto, {});
+  esperar(5);
+  C.exec(`INSERT INTO favoritos (persona_id, ejercicio_id) VALUES (${idDe(C)}, 'B')`); // C revive la persona
+  esperar(5);
+  await sincronizar(C, remoto, {});
+  await sincronizar(A, remoto, {});
+  esperar(5);
+  B.prepare("UPDATE personas SET color = '#abc' WHERE uid = ?").run(uid); // B edita la persona después, sin saber del borrado
+  esperar(5);
+  await converger([B, A, C], remoto, 4);
+  const favs = (db) => q(db, 'SELECT ejercicio_id FROM favoritos ORDER BY ejercicio_id').map(f => f.ejercicio_id);
+  for (const db of [A, B, C]) assert.deepEqual(favs(db), ['B']);
+  // (el remoto conserva el favorito viejo vivo: inofensivo, nadie lo aplica; por eso no se compara con él)
+  assert.deepEqual(vivosLocales(B), vivosLocales(A));
+  assert.deepEqual(vivosLocales(C), vivosLocales(A));
+  for (const db of [A, B, C]) assert.deepEqual(await sincronizar(db, remoto, {}), { subidos: 0, bajados: 0, enEspera: 0, rechazados: 0 });
+});
+
+test('un error transitorio (base ocupada) aborta la vuelta sin cuarentena ni avanzar el cursor', async () => {
+  const [A, B, remoto] = [nuevaBase(), nuevaBase(), crearRemotoEnMemoria()];
+  agregarAna(A);
+  await sincronizar(A, remoto, {});
+  let ocupada = true;
+  const proxy = new Proxy(B, {
+    get(obj, k) {
+      const v = obj[k];
+      if (k === 'prepare') return (sql) => {
+        if (ocupada && sql.includes('INSERT INTO rutinas')) { const e = new Error('database is locked'); e.errcode = 5; throw e; }
+        return obj.prepare(sql);
+      };
+      return typeof v === 'function' ? v.bind(obj) : v;
+    },
+  });
+  await assert.rejects(sincronizar(proxy, remoto, {}), /locked/);
+  assert.equal(estado(B, 'cursor'), null);
+  assert.equal(estado(B, 'rechazados'), null);
+  assert.equal(n(B, 'SELECT COUNT(*) n FROM personas'), 1, 'la página entera se deshizo');
+  ocupada = false;
+  const r = await sincronizar(B, remoto, {});
+  assert.equal(r.rechazados, 0);
+  assert.equal(n(B, 'SELECT COUNT(*) n FROM rutinas'), 1);
+});
+
+test('un equipo con una versión de fecha futura que edita después: la edición supera esa marca, se sube y gana', async () => {
+  const [A, B, remoto] = [nuevaBase(), nuevaBase(), crearRemotoEnMemoria()];
+  agregarAna(A);
+  await converger([A, B], remoto, 2);
+  // Un equipo con el reloj adelantado editó la rutina: su versión trae una marca de dentro de una hora.
+  const doc = cambiosLocales(A, null).find(d => d.tipo === 'rutina');
+  const futuro = new Date(Date.now() + 3600e3).toISOString();
+  await remoto.subir([{ ...doc, actualizado: futuro, datos: { ...doc.datos, nombre: 'del futuro' } }]);
+  await converger([A, B], remoto, 2);
+  assert.deepEqual(nombresRutinas(B), ['del futuro']);
+  esperar();
+  B.exec("UPDATE rutinas SET nombre = 'mi edición'");
+  assert.ok(q(B, 'SELECT actualizado FROM rutinas')[0].actualizado > futuro);
+  await converger([B, A], remoto, 3);
+  assert.deepEqual(nombresRutinas(A), ['mi edición']);
+  assert.deepEqual(nombresRutinas(B), ['mi edición']);
+});

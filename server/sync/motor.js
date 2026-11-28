@@ -16,6 +16,9 @@
 //
 // Garantías: nada se marca como enviado si `subir` falla (cualquier lote); el cursor solo avanza junto con la
 // aplicación de ese mismo lote (una transacción), así que un corte no pierde ni repite trabajo de forma dañina.
+// Notas: `sync_muertas` (en la base) nunca se poda (una fila por persona borrada, es chica). Descartar pendientes por
+// MAX_PENDIENTES no se puede recuperar (queda en el registro). El desfase de relojes entre equipos es un límite aceptado
+// del diseño (gana el `actualizado` más nuevo).
 // Los errores del remoto se propagan tal cual: quien llama decide el mensaje y el reintento.
 
 import { cambiosLocales, aplicarDocumento } from './documentos.js';
@@ -24,6 +27,12 @@ const LOTE_SUBIDA = 200;
 const MAX_PAGINAS = 1000; // freno de seguridad contra un remoto que nunca termina
 const MAX_PENDIENTES = 500; // tope de respaldo de la lista de espera (se descartan las más viejas)
 const MAX_RECHAZADOS = 100;
+
+// Errores que no dependen del documento (base ocupada o bloqueada, disco, memoria): se reintentan en otra vuelta,
+// nunca van a cuarentena. Solo los errores determinísticos de datos (restricciones, formato) se rechazan.
+const SQLITE_TRANSITORIOS = new Set([5, 6, 7, 10, 13]); // BUSY, LOCKED, NOMEM, IOERR, FULL
+const esTransitorio = (err) => SQLITE_TRANSITORIOS.has((err?.errcode ?? 0) & 0xff)
+  || /database is locked|database table is locked|busy|disk i\/o|disk is full|out of memory/i.test(String(err?.message));
 
 // personas -> rutinas y perfiles -> sesiones, medidas y favoritos
 const RANGO = { persona: 0, rutina: 1, perfil: 1, sesion: 2, medida: 2, favorito: 2 };
@@ -69,6 +78,7 @@ function aplicarLote(db, docs, rechazados) {
       if (rechazados[k]?.actualizado === d.actualizado) continue; // ya falló con esta misma versión
       let res;
       try { res = aplicarDocumento(db, d); } catch (err) {
+        if (esTransitorio(err)) throw err; // aborta la vuelta: la página se deshace y el cursor no avanza
         // El savepoint ya deshizo este documento; se aparta y el resto sigue (el cursor pasa de largo).
         delete rechazados[k];
         rechazados[k] = { actualizado: d.actualizado, error: String(err?.message ?? err) };

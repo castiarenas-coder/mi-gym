@@ -7,6 +7,7 @@ import express from 'express';
 import { DatabaseSync } from 'node:sqlite';
 import { backupDb } from './backup.js';
 import { openDb, versionActual } from './db.js';
+import { cambiosLocales } from './sync/documentos.js';
 
 // Orden de inserción (padres antes que hijos). Para borrar se recorre al revés.
 export const TABLAS_USUARIO = ['personas', 'rutinas', 'rutina_dias', 'rutina_ejercicios', 'sesiones', 'sesion_ejercicios', 'series_hechas', 'medidas', 'perfil', 'favoritos', 'ajustes'];
@@ -53,6 +54,10 @@ export function importarDatos(db, datos, { backupsDir } = {}) {
   if (backupsDir) seguridad = path.basename(backupDb(db, backupsDir));
   db.exec('BEGIN');
   try {
+    // Restaurar es una operación puramente local: nunca debe borrar nada de la nube. Los borrados que el
+    // vaciado dispara (lápidas y personas muertas) se descartan al final; quedan solo los que ya existían.
+    const lapidasPrevias = db.prepare('SELECT tipo, clave, fecha FROM sync_borrados').all().map(f => ({ ...f }));
+    const muertasPrevias = db.prepare('SELECT persona, fecha, viva FROM sync_muertas').all().map(f => ({ ...f }));
     for (const t of [...TABLAS_USUARIO].reverse()) db.exec(`DELETE FROM ${t}`);
     db.exec("UPDATE ejercicios SET favorito = 0, media_propia = NULL");
     for (const t of TABLAS_USUARIO) {
@@ -71,6 +76,15 @@ export function importarDatos(db, datos, { backupsDir } = {}) {
     }
     const marcar = db.prepare('UPDATE ejercicios SET media_propia = ? WHERE id = ?');
     for (const e of datos.ejercicios) marcar.run(e.media_propia ?? null, String(e.id));
+    db.exec('DELETE FROM sync_borrados; DELETE FROM sync_muertas');
+    const vivos = new Set(cambiosLocales(db, null).filter(d => !d.borrado).map(d => `${d.tipo}|${d.clave}`));
+    const lapida = db.prepare('INSERT INTO sync_borrados (tipo, clave, fecha) VALUES (?, ?, ?)');
+    for (const l of lapidasPrevias) if (!vivos.has(`${l.tipo}|${l.clave}`)) lapida.run(l.tipo, l.clave, l.fecha);
+    const muerta = db.prepare('INSERT INTO sync_muertas (persona, fecha, viva) VALUES (?, ?, ?)');
+    for (const m of muertasPrevias) muerta.run(m.persona, m.fecha, m.viva);
+    // La bajada se reinicia: la próxima vuelta vuelve a bajar todo de la nube y "gana el más nuevo" lo junta con lo
+    // restaurado. `ultimo_envio` se conserva (lo ya enviado no se vuelve a mandar; lo restaurado más nuevo, sí).
+    db.exec("DELETE FROM sync_estado WHERE clave IN ('cursor', 'eco', 'pendientes', 'rechazados')");
     if (db.prepare('PRAGMA foreign_key_check').all().length) throw new ErrorRespaldo('El archivo tiene referencias a personas, ejercicios o rutinas que no existen.');
     db.exec('COMMIT');
   } catch (err) {

@@ -88,11 +88,13 @@ const personaId = (db, uid) => db.prepare('SELECT id FROM personas WHERE uid = ?
 const lapida = (db, tipo, clave) => db.prepare('SELECT fecha FROM sync_borrados WHERE tipo = ? AND clave = ?').get(tipo, clave)?.fecha ?? null;
 const quitarLapida = (db, tipo, clave) => db.prepare('DELETE FROM sync_borrados WHERE tipo = ? AND clave = ?').run(tipo, clave);
 // Personas muertas: uid -> fecha del borrado (aquí o en otro equipo, aunque la persona nunca haya existido acá).
+// `sync_muertas` no se poda nunca (una fila por persona borrada alguna vez: es chica). `viva = 1` = revivió sobre ese borrado.
+// Fecha del borrado conocido de la persona, esté viva o no ('' si no hay).
+const fechaMuerte = (db, uid) => db.prepare('SELECT fecha FROM sync_muertas WHERE persona = ?').get(uid)?.fecha ?? '';
 const muerta = (db, uid) => db.prepare('SELECT fecha FROM sync_muertas WHERE persona = ? AND viva = 0').get(uid)?.fecha ?? null;
 const marcarMuerta = (db, uid, fecha) => db.prepare(
   `INSERT INTO sync_muertas (persona, fecha, viva) VALUES (?, ?, 0)
    ON CONFLICT (persona) DO UPDATE SET fecha = CASE WHEN viva = 1 THEN excluded.fecha ELSE MAX(fecha, excluded.fecha) END, viva = 0`).run(uid, fecha);
-const limpiarMuerta = (db, uid) => db.prepare('DELETE FROM sync_muertas WHERE persona = ?').run(uid);
 const reviveSobre = (db, uid, fecha) => db.prepare(
   `INSERT INTO sync_muertas (persona, fecha, viva) VALUES (?, ?, 1)
    ON CONFLICT (persona) DO UPDATE SET fecha = CASE WHEN viva = 1 THEN MAX(fecha, excluded.fecha) ELSE excluded.fecha END, viva = 1`).run(uid, fecha);
@@ -339,7 +341,7 @@ export function aplicarDocumento(db, d) {
       const murio = d.tipo === 'persona' ? muerta(db, d.clave) : null;
       // Un hijo que no es posterior al borrado de su persona (haya revivido o no) está muerto.
       const hijoMuerto = d.tipo !== 'persona' && d.datos?.persona
-        && (db.prepare('SELECT fecha FROM sync_muertas WHERE persona = ?').get(d.datos.persona)?.fecha ?? '') >= d.actualizado;
+        && fechaMuerte(db, d.datos.persona) >= d.actualizado;
       // Con la misma fecha gana el borrado.
       if (hijoMuerto || (local && local.actualizado >= d.actualizado) || (borradoLocal && borradoLocal >= d.actualizado) || (murio && murio >= d.actualizado)) res = 'ignorado';
       else {
@@ -347,12 +349,13 @@ export function aplicarDocumento(db, d) {
         if (d.tipo === 'persona' && res === 'aplicado') {
           // La persona vive sobre un borrado: el del documento (que este equipo quizá no vio) o el que conocía acá.
           const desde = d.datos?.muerta_desde ?? null;
-          const efectivo = [desde, murio].filter(Boolean).sort().at(-1);
+          const conocida = fechaMuerte(db, d.clave); // viva o no: un documento sin `muerta_desde` no puede olvidarla
+          const efectivo = [desde, conocida].filter(Boolean).sort().at(-1);
           if (efectivo) {
             matarAnteriores(db, personaId(db, d.clave), d.clave, efectivo);
             reviveSobre(db, d.clave, efectivo);
             // Si el borrado conocido acá no viajaba en el documento, hay que difundirlo: se re-estampa para subirla.
-            if (murio && murio > (desde ?? '')) {
+            if (conocida > (desde ?? '')) {
               db.prepare('UPDATE personas SET actualizado = ? WHERE uid = ?').run(ahoraDespues(db, d.actualizado), d.clave);
               res = 'degradado';
             }

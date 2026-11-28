@@ -4,6 +4,9 @@ import path from 'node:path';
 
 // Ayudas para la migración 6 (identidades y marcas de cambio para sincronizar).
 const AHORA = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
+// Marca de un cambio sobre una fila que ya la tiene: nunca menor ni igual a la anterior (+1 ms, aritmética exacta de
+// SQLite en milisegundos), así una edición local supera siempre a una versión con fecha adelantada y se sube y gana.
+const MONOTONO = `MAX(${AHORA}, COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', actualizado, '+0.001 seconds'), ''))`;
 // UUID v4 con 16 bytes al azar; `fila` se nombra para que SQLite lo evalúe una vez por fila.
 const UUID_V4 = (fila) => `(WITH h(x) AS (SELECT lower(hex(randomblob(16))) WHERE ${fila} IS NOT NULL)
         SELECT substr(x, 1, 8) || '-' || substr(x, 9, 4) || '-4' || substr(x, 14, 3) || '-'
@@ -309,7 +312,7 @@ export const MIGRACIONES = [
         UPDATE ${t} SET actualizado = ${AHORA} WHERE id = NEW.id;
       END;
       CREATE TRIGGER ${t}_cambio AFTER UPDATE OF ${COLUMNAS[t]} ON ${t} WHEN NEW.actualizado IS OLD.actualizado BEGIN
-        UPDATE ${t} SET actualizado = ${AHORA} WHERE id = NEW.id;
+        UPDATE ${t} SET actualizado = ${MONOTONO} WHERE id = NEW.id;
       END;
       CREATE TRIGGER ${t}_recrea AFTER INSERT ON ${t} WHEN NEW.uid IS NOT NULL BEGIN
         DELETE FROM sync_borrados WHERE tipo = '${tipo}' AND clave = NEW.uid;
@@ -340,7 +343,7 @@ export const MIGRACIONES = [
         UPDATE ${t} SET actualizado = ${AHORA} WHERE ${where('NEW')};
       END;
       CREATE TRIGGER ${t}_cambio AFTER UPDATE OF ${COLUMNAS[t]} ON ${t} WHEN NEW.actualizado IS OLD.actualizado BEGIN
-        UPDATE ${t} SET actualizado = ${AHORA} WHERE ${where('NEW')};
+        UPDATE ${t} SET actualizado = ${MONOTONO} WHERE ${where('NEW')};
       END;
       CREATE TRIGGER ${t}_recrea AFTER INSERT ON ${t} BEGIN
         DELETE FROM sync_borrados WHERE tipo = '${tipo}' AND clave = (SELECT ${claveSql('NEW')} FROM personas p WHERE p.id = NEW.persona_id);
@@ -353,7 +356,7 @@ export const MIGRACIONES = [
 
       ${HIJOS.map(([t, padre, idPadre]) => ['INSERT', 'UPDATE', 'DELETE'].map(ev => `
       CREATE TRIGGER ${t}_${ev.toLowerCase()}_marca AFTER ${ev} ON ${t} BEGIN
-        UPDATE ${padre} SET actualizado = ${AHORA} WHERE id = ${idPadre(ev === 'DELETE' ? 'OLD' : 'NEW')};
+        UPDATE ${padre} SET actualizado = ${MONOTONO} WHERE id = ${idPadre(ev === 'DELETE' ? 'OLD' : 'NEW')};
       END;`).join('\n')).join('\n')}
     `,
   },
