@@ -8,6 +8,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { backupDb } from './backup.js';
 import { openDb, versionActual } from './db.js';
 import { cambiosLocales } from './sync/documentos.js';
+import { reiniciarBajada } from './sync/motor.js';
 
 // Orden de inserción (padres antes que hijos). Para borrar se recorre al revés.
 export const TABLAS_USUARIO = ['personas', 'rutinas', 'rutina_dias', 'rutina_ejercicios', 'sesiones', 'sesion_ejercicios', 'series_hechas', 'medidas', 'perfil', 'favoritos', 'ajustes'];
@@ -84,7 +85,7 @@ export function importarDatos(db, datos, { backupsDir } = {}) {
     for (const m of muertasPrevias) muerta.run(m.persona, m.fecha, m.viva);
     // La bajada se reinicia: la próxima vuelta vuelve a bajar todo de la nube y "gana el más nuevo" lo junta con lo
     // restaurado. `ultimo_envio` se conserva (lo ya enviado no se vuelve a mandar; lo restaurado más nuevo, sí).
-    db.exec("DELETE FROM sync_estado WHERE clave IN ('cursor', 'eco', 'pendientes', 'rechazados')");
+    reiniciarBajada(db);
     if (db.prepare('PRAGMA foreign_key_check').all().length) throw new ErrorRespaldo('El archivo tiene referencias a personas, ejercicios o rutinas que no existen.');
     db.exec('COMMIT');
   } catch (err) {

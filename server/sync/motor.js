@@ -39,12 +39,17 @@ const RANGO = { persona: 0, rutina: 1, perfil: 1, sesion: 2, medida: 2, favorito
 const ordenar = (docs) => [...docs].sort((a, b) => (RANGO[a.tipo] ?? 9) - (RANGO[b.tipo] ?? 9));
 const claveDe = (d) => `${d.tipo}|${d.clave}`;
 
-const leer = (db, clave) => db.prepare('SELECT valor FROM sync_estado WHERE clave = ?').get(clave)?.valor ?? null;
-const guardar = (db, clave, valor) => db.prepare(
+export const leer = (db, clave) => db.prepare('SELECT valor FROM sync_estado WHERE clave = ?').get(clave)?.valor ?? null;
+export const guardar = (db, clave, valor) => db.prepare(
   'INSERT INTO sync_estado (clave, valor) VALUES (?, ?) ON CONFLICT (clave) DO UPDATE SET valor = excluded.valor').run(clave, valor);
 const leerJson = (db, clave, defecto) => { try { return JSON.parse(leer(db, clave)) ?? defecto; } catch { return defecto; } };
 
-function enTransaccion(db, fn) {
+/** Olvida lo bajado (cursor y lo que depende de él): la próxima vuelta vuelve a bajar todo de la nube. */
+export function reiniciarBajada(db) {
+  db.exec("DELETE FROM sync_estado WHERE clave IN ('cursor', 'eco', 'pendientes', 'rechazados')");
+}
+
+export function enTransaccion(db, fn) {
   db.exec('BEGIN');
   try { const r = fn(); db.exec('COMMIT'); return r; }
   catch (err) { db.exec('ROLLBACK'); throw err; }
