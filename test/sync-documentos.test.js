@@ -319,14 +319,15 @@ test('aplicarDocumento funciona dentro de una transacción externa', () => {
   assert.equal(b.isTransaction, false);
 });
 
-test('una persona borrada localmente no deja documentos en espera sino ignorados', () => {
+test('con la persona borrada localmente: lo anterior al borrado se ignora y lo posterior espera (la persona puede revivir)', () => {
   const a = conDatos();
   const b = base();
   copiar(a, b);
   b.exec("DELETE FROM personas WHERE nombre = 'Ana'");
   for (const tipo of ['rutina', 'sesion', 'medida', 'perfil', 'favorito']) {
     const d = cambiosLocales(a, null).find(x => x.tipo === tipo);
-    assert.equal(aplicarDocumento(b, { ...d, actualizado: '9999' }), 'ignorado', tipo);
+    assert.equal(aplicarDocumento(b, { ...d, actualizado: '0000' }), 'ignorado', tipo);
+    assert.equal(aplicarDocumento(b, { ...d, actualizado: '9999' }), 'en_espera', tipo);
   }
 });
 

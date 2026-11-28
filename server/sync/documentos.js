@@ -81,8 +81,12 @@ export function cambiosLocales(db, desde) {
 const personaId = (db, uid) => db.prepare('SELECT id FROM personas WHERE uid = ?').get(uid)?.id ?? null;
 const lapida = (db, tipo, clave) => db.prepare('SELECT fecha FROM sync_borrados WHERE tipo = ? AND clave = ?').get(tipo, clave)?.fecha ?? null;
 const quitarLapida = (db, tipo, clave) => db.prepare('DELETE FROM sync_borrados WHERE tipo = ? AND clave = ?').run(tipo, clave);
-// Sin persona local: si la borré yo (lápida) el documento se descarta; si no, todavía no llegó y se espera.
-const sinPersona = (db, uid) => (lapida(db, 'persona', uid) ? 'ignorado' : 'en_espera');
+// Sin persona local: si la borré yo (lápida) y el documento no es posterior al borrado se descarta; si es posterior,
+// alguien la editó después y la persona va a revivir, así que (igual que si todavía no llegó) se espera.
+const sinPersona = (db, uid, actualizado) => {
+  const l = lapida(db, 'persona', uid);
+  return l && l >= actualizado ? 'ignorado' : 'en_espera';
+};
 const ejerciciosConocidos = (db, lista) => {
   const existe = db.prepare('SELECT 1 FROM ejercicios WHERE id = ?');
   return lista.filter(e => existe.get(e.ejercicio_id));
@@ -127,7 +131,7 @@ const MANEJADORES = {
     escribir(db, d, local) {
       const x = d.datos;
       const pid = personaId(db, x.persona);
-      if (pid == null) return sinPersona(db, x.persona);
+      if (pid == null) return sinPersona(db, x.persona, d.actualizado);
       let id = local?.id;
       if (id) db.prepare('UPDATE rutinas SET nombre = ?, dias = ?, descripcion = ?, persona_id = ? WHERE id = ?')
         .run(x.nombre, x.dias_semana ?? '[]', x.descripcion ?? '', pid, id);
@@ -163,7 +167,7 @@ const MANEJADORES = {
       const x = d.datos;
       if (x.estado === 'en_curso') return 'ignorado';
       const pid = personaId(db, x.persona);
-      if (pid == null) return sinPersona(db, x.persona);
+      if (pid == null) return sinPersona(db, x.persona, d.actualizado);
       // Rutina que aún no llegó: se espera. Si la borré yo (lápida) la sesión queda sin rutina; un día fuera de rango, sin día.
       const rutina = x.rutina ? db.prepare('SELECT id FROM rutinas WHERE uid = ?').get(x.rutina)?.id ?? null : null;
       if (x.rutina && rutina == null && !lapida(db, 'rutina', x.rutina)) return 'en_espera';
@@ -201,7 +205,7 @@ const MANEJADORES = {
     escribir(db, d, local) {
       const x = d.datos;
       const pid = personaId(db, x.persona);
-      if (pid == null) return sinPersona(db, x.persona);
+      if (pid == null) return sinPersona(db, x.persona, d.actualizado);
       db.prepare(`INSERT INTO medidas (persona_id, fecha, peso_kg, cintura, pecho, brazo, pierna, grasa_pct, actualizado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (persona_id, fecha) DO UPDATE SET peso_kg = excluded.peso_kg, cintura = excluded.cintura, pecho = excluded.pecho,
           brazo = excluded.brazo, pierna = excluded.pierna, grasa_pct = excluded.grasa_pct`)
@@ -221,7 +225,7 @@ const MANEJADORES = {
     escribir(db, d) {
       const x = d.datos;
       const pid = personaId(db, x.persona);
-      if (pid == null) return sinPersona(db, x.persona);
+      if (pid == null) return sinPersona(db, x.persona, d.actualizado);
       db.prepare(`INSERT INTO perfil (persona_id, altura, edad, sexo, actividad, objetivo, fecha_nacimiento, actualizado) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (persona_id) DO UPDATE SET altura = excluded.altura, edad = excluded.edad, sexo = excluded.sexo,
           actividad = excluded.actividad, objetivo = excluded.objetivo, fecha_nacimiento = excluded.fecha_nacimiento`)
@@ -243,7 +247,7 @@ const MANEJADORES = {
     escribir(db, d) {
       const x = d.datos;
       const pid = personaId(db, x.persona);
-      if (pid == null) return sinPersona(db, x.persona);
+      if (pid == null) return sinPersona(db, x.persona, d.actualizado);
       if (!db.prepare('SELECT 1 FROM ejercicios WHERE id = ?').get(x.ejercicio_id)) return 'ignorado';
       db.prepare(`INSERT INTO favoritos (persona_id, ejercicio_id, actualizado) VALUES (?, ?, ?)
         ON CONFLICT (persona_id, ejercicio_id) DO NOTHING`).run(pid, x.ejercicio_id, d.actualizado);
