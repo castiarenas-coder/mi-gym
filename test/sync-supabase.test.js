@@ -245,13 +245,13 @@ test('cuenta(): email, plan y consentimiento', async () => {
   const { cliente, llamadas } = crear({
     rutas: () => resp(200, [{ plan: 'pro', consentimiento_en: '2026-01-01T00:00:00Z' }]),
   });
-  assert.deepEqual(await cliente.cuenta(), { email: 'a@b.c', plan: 'pro', consentimiento_en: '2026-01-01T00:00:00Z' });
+  assert.deepEqual(await cliente.cuenta(), { id: null, email: 'a@b.c', plan: 'pro', consentimiento_en: '2026-01-01T00:00:00Z' });
   assert.equal(new URL(llamadas[0].url).searchParams.get('select'), 'plan,consentimiento_en');
 });
 
 test('cuenta() sin fila usa plan gratis y sin consentimiento', async () => {
   const { cliente } = crear({ rutas: () => resp(200, []) });
-  assert.deepEqual(await cliente.cuenta(), { email: 'a@b.c', plan: 'gratis', consentimiento_en: null });
+  assert.deepEqual(await cliente.cuenta(), { id: null, email: 'a@b.c', plan: 'gratis', consentimiento_en: null });
 });
 
 test('aceptarConsentimiento y borrarCuenta (cierra la sesion local)', async () => {
@@ -379,4 +379,27 @@ test('config: Supabase solo con url y clave anonima; sin ellas la cuenta queda d
   assert.equal(resolverConfig({ MI_GYM_SUPABASE_URL: 'https://x.supabase.co' }).supabase, null);
   assert.deepEqual(resolverConfig({ MI_GYM_SUPABASE_URL: 'https://x.supabase.co', MI_GYM_SUPABASE_ANON_KEY: 'k' }).supabase,
     { url: 'https://x.supabase.co', anonKey: 'k' });
+});
+
+test('cuenta(): devuelve el id del usuario (queda en la sesion y sobrevive a renovar el token)', async () => {
+  const { cliente, sesion } = crear({
+    sesion: null,
+    rutas: (url) => url.includes('/auth/v1/verify')
+      ? resp(200, { access_token: 'AT', refresh_token: 'RT', expires_in: 3600, user: { id: 'uuid-1', email: 'a@b.c' } })
+      : resp(200, [{ plan: 'pro', consentimiento_en: null }]),
+  });
+  await cliente.verificarCodigo('a@b.c', '123456');
+  assert.equal(sesion().id, 'uuid-1');
+  assert.equal((await cliente.cuenta()).id, 'uuid-1');
+});
+
+test('renovar el token conserva el id aunque la respuesta no lo traiga', async () => {
+  const { cliente, sesion } = crear({
+    sesion: { ...SES, id: 'uuid-1', expira_en: 1 },
+    rutas: (url) => url.includes('grant_type=refresh_token')
+      ? resp(200, { access_token: 'A2', refresh_token: 'R2', expires_in: 3600 })
+      : resp(200, [{ plan: 'pro', consentimiento_en: null }]),
+  });
+  assert.equal((await cliente.cuenta()).id, 'uuid-1');
+  assert.equal(sesion().access_token, 'A2');
 });

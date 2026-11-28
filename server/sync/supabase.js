@@ -74,6 +74,7 @@ export function crearClienteSupabase({ url, anonKey, fetchFn = fetch, guardarSes
   const sesionDe = (r, previa) => ({
     access_token: r.access_token,
     refresh_token: r.refresh_token ?? previa?.refresh_token,
+    id: r.user?.id ?? previa?.id ?? null,
     email: r.user?.email ?? previa?.email ?? null,
     expira_en: Date.now() + (Number(r.expires_in) || 3600) * 1000,
   });
@@ -170,7 +171,7 @@ export function crearClienteSupabase({ url, anonKey, fetchFn = fetch, guardarSes
       const filas = await exigir(r);
       const fila = Array.isArray(filas) ? filas[0] : null;
       const actual = await leerSesion();
-      return { email: actual?.email ?? s.email ?? null, plan: fila?.plan ?? 'gratis', consentimiento_en: fila?.consentimiento_en ?? null };
+      return { id: actual?.id ?? s.id ?? null, email: actual?.email ?? s.email ?? null, plan: fila?.plan ?? 'gratis', consentimiento_en: fila?.consentimiento_en ?? null };
     },
 
     async aceptarConsentimiento() {

@@ -58,10 +58,10 @@ export function createApp({ db, imgDir, mediaDir, clientDir, version = '0.0.0', 
     });
   }
   // Cuenta en la nube: sin proyecto de Supabase queda deshabilitada y solo GET /api/cuenta lo dice.
-  const cuenta = supabase || cliente ? crearCuenta({ db, supabase, fetchFn, cliente, rutaClave, backupsDir, ahora, timers }) : null;
+  const cuenta = supabase || cliente ? crearCuenta({ db, supabase, fetchFn, cliente, rutaClave, backupsDir, ahora, timers, google: plataforma !== 'android' && !token }) : null;
   app.locals.programador = cuenta?.programador ?? null;
   if (cuenta) app.use('/api/cuenta', cuenta.router);
-  else app.get('/api/cuenta', (_req, res) => res.json({ habilitada: false, sesion: null, vinculado: false, ultimaSincronizacion: null, error: null }));
+  else app.get('/api/cuenta', (_req, res) => res.json({ habilitada: false, google: false, sesion: null, vinculado: false, ultimaSincronizacion: null, error: null }));
   const sesiones = sesionesRouter(db, { ahora, alFinalizar: () => cuenta?.programador.avisar() });
   const progreso = progresoRouter(db, { ahora });
   app.use('/api/personas', personasRouter(db));

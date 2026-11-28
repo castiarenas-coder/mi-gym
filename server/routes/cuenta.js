@@ -2,12 +2,19 @@
 //
 // Mismas protecciones que el resto de /api (X-Mi-Gym en los cambios, Host de la propia máquina). Ninguna respuesta ni
 // registro lleva tokens: los errores se traducen con `traducir` y los desconocidos salen como un mensaje genérico.
+//
+// La cuenta se identifica por el id de usuario de Supabase (`sync_estado.cuenta`), no por el mail: el mail puede
+// cambiar y una cuenta recreada con el mismo mail es otra cuenta.
+//
+// Google (PKCE): en Supabase, Authentication > URL Configuration > Redirect URLs tiene que permitir
+//   http://127.0.0.1:*/api/cuenta/google/vuelta   y   http://localhost:*/api/cuenta/google/vuelta
+// No se ofrece en Android ni con clave de acceso (MI_GYM_TOKEN): el navegador externo no trae la cookie.
 
 import { Router } from 'express';
 import { randomBytes } from 'node:crypto';
 import { crearClienteSupabase, ErrorSupabase } from '../sync/supabase.js';
 import { sesionEnDb } from '../sync/secreto.js';
-import { sincronizar, leer, reiniciarBajada, enTransaccion } from '../sync/motor.js';
+import { sincronizar, leer, guardar, reiniciarBajada, enTransaccion } from '../sync/motor.js';
 import { estadoVinculo, vincular, personasDuplicadas, unificarPersonas } from '../sync/vincular.js';
 import { crearProgramador } from '../sync/programador.js';
 import { ErrorCuenta, traducir } from '../sync/errores.js';
@@ -25,12 +32,22 @@ const emailValido = e => typeof e === 'string' && e.length <= 254 && /^[^\s@]+@[
  * Crea la cuenta: cliente de Supabase (o el inyectado en pruebas), programador de la sincronización y el router.
  * Devuelve `{ router, programador }`. `programador.iniciar()` lo llama quien arranca el servidor.
  */
-export function crearCuenta({ db, supabase, fetchFn = fetch, cliente = null, rutaClave, backupsDir = null, ahora = () => new Date(), timers, intervaloMs }) {
+export function crearCuenta({ db, supabase, fetchFn = fetch, cliente = null, rutaClave, backupsDir = null, ahora = () => new Date(), timers, intervaloMs, google = true }) {
   cliente ??= crearClienteSupabase({ url: supabase.url, anonKey: supabase.anonKey, fetchFn, ...sesionEnDb(db, rutaClave) });
   let ultimaCuenta = null; // lo último que dijo la nube: se muestra si se cae la conexión
   let verificador = null;
 
+  const sesionLocal = rutaClave ? sesionEnDb(db, rutaClave).leerSesion : async () => null;
   const emailDe = c => (typeof c?.email === 'string' && c.email ? c.email.trim().toLowerCase() : null);
+
+  /** Id de la cuenta. Un vínculo viejo guardado con el mail de esta misma cuenta se pasa al id (una sola vez). */
+  function idDe(c) {
+    const id = typeof c?.id === 'string' && c.id ? c.id : null;
+    const guardada = leer(db, 'cuenta');
+    if (id && guardada?.includes('@') && guardada === emailDe(c)) guardar(db, 'cuenta', id);
+    return id;
+  }
+  const vinculadaA = c => { const id = idDe(c); return id !== null && leer(db, 'cuenta') === id; };
 
   async function leerCuenta() {
     const c = await cliente.cuenta();
@@ -41,11 +58,10 @@ export function crearCuenta({ db, supabase, fetchFn = fetch, cliente = null, rut
   /** Sesión iniciada, plan Pro y, según se pida, consentimiento y vínculo ya hecho. Devuelve la cuenta. */
   async function exigirListo({ consentimiento = true, vinculo = true } = {}) {
     const c = await leerCuenta();
-    const email = emailDe(c);
-    if (!email) throw new ErrorCuenta('sin_sesion');
+    if (!idDe(c)) throw new ErrorCuenta('sin_sesion');
     if (c.plan !== 'pro') throw new ErrorCuenta('plan_requerido');
     if (consentimiento && !c.consentimiento_en) throw new ErrorCuenta('sin_consentimiento');
-    if (vinculo && leer(db, 'cuenta') !== email) throw new ErrorCuenta('sin_vinculo');
+    if (vinculo && !vinculadaA(c)) throw new ErrorCuenta('sin_vinculo');
     return c;
   }
 
@@ -67,16 +83,24 @@ export function crearCuenta({ db, supabase, fetchFn = fetch, cliente = null, rut
   const invalido = (res, mensaje) => res.status(400).json({ error: mensaje, codigo: 'datos_invalidos' });
 
   router.get('/', async (_req, res) => {
-    const base = { habilitada: true, sesion: null, vinculado: false, ultimaSincronizacion: leer(db, 'ultima_sync'), error: programador.estado().error };
+    const base = { habilitada: true, google, sesion: null, vinculado: false, ultimaSincronizacion: leer(db, 'ultima_sync'), error: programador.estado().error };
     try {
       const c = await leerCuenta();
-      return res.json({ ...base, sesion: { email: c.email, plan: c.plan, consentimiento: Boolean(c.consentimiento_en) }, vinculado: leer(db, 'cuenta') === emailDe(c) });
+      return res.json({ ...base, sesion: { email: c.email, plan: c.plan, consentimiento: Boolean(c.consentimiento_en) }, vinculado: vinculadaA(c) });
     } catch (e) {
       if (e instanceof ErrorSupabase && e.codigo === 'sin_sesion') { ultimaCuenta = null; return res.json(base); }
       if (e instanceof ErrorSupabase && e.codigo === 'sesion_vencida') { ultimaCuenta = null; return res.json({ ...base, error: traducir(e).mensaje }); }
-      if (e instanceof ErrorSupabase && ultimaCuenta) {
-        const c = ultimaCuenta;
-        return res.json({ ...base, sesion: { email: c.email, plan: c.plan, consentimiento: Boolean(c.consentimiento_en) }, vinculado: leer(db, 'cuenta') === emailDe(c), error: traducir(e).mensaje });
+      if (e instanceof ErrorSupabase) {
+        // Sin conexión (o la nube caída): se muestra lo último conocido o, tras reiniciar la app, lo de la sesión guardada.
+        const c = ultimaCuenta ?? await sesionLocal();
+        if (c?.email) {
+          const conocido = ultimaCuenta !== null;
+          return res.json({
+            ...base, error: traducir(e).mensaje,
+            sesion: { email: c.email, plan: conocido ? c.plan : null, consentimiento: conocido ? Boolean(c.consentimiento_en) : null },
+            vinculado: vinculadaA(c),
+          });
+        }
       }
       return fallar(res, e);
     }
@@ -100,22 +124,23 @@ export function crearCuenta({ db, supabase, fetchFn = fetch, cliente = null, rut
 
   // Google: el navegador va a Google y vuelve a /google/vuelta. El verificador PKCE no sale del servidor.
   router.get('/google', ruta(async (req, res) => {
+    if (!google) return res.status(404).json({ error: 'El ingreso con Google no está disponible acá. Usá el código por mail.', codigo: 'no_disponible' });
     verificador = { valor: randomBytes(32).toString('base64url'), creado: ahora().getTime() };
     res.redirect(302, cliente.urlGoogle(`http://${req.headers.host}/api/cuenta/google/vuelta`, verificador.valor));
   }));
 
   router.get('/google/vuelta', async (req, res) => {
     const pendiente = verificador;
-    verificador = null; // sirve una sola vez
     const html = (status, titulo, mensaje) => res.status(status).type('html').send(pagina(titulo, mensaje));
     if (!pendiente || ahora().getTime() - pendiente.creado > MAX_VERIFICADOR_MS) {
       return html(400, 'No se pudo iniciar sesión', 'El intento venció. Volvé a Rumbo Fit y probá de nuevo.');
     }
-    if (req.query.error) return html(400, 'No se pudo iniciar sesión', 'Google no completó el ingreso. Volvé a Rumbo Fit y probá de nuevo.');
+    // El verificador se conserva hasta un canje exitoso (o 10 minutos): un pedido ajeno o sin código no lo gasta.
     const codigo = typeof req.query.code === 'string' ? req.query.code : '';
-    if (!codigo) return html(400, 'No se pudo iniciar sesión', 'Falta el código de Google. Volvé a Rumbo Fit y probá de nuevo.');
+    if (!codigo) return html(400, 'No se pudo iniciar sesión', 'Google no completó el ingreso. Volvé a Rumbo Fit y probá de nuevo.');
     try {
       await cliente.canjearCodigoGoogle(codigo, pendiente.valor);
+      verificador = null;
     } catch (e) {
       return html(traducir(e).status, 'No se pudo iniciar sesión', traducir(e).mensaje);
     }
@@ -132,16 +157,23 @@ export function crearCuenta({ db, supabase, fetchFn = fetch, cliente = null, rut
   router.get('/vinculo', ruta(async (_req, res) => {
     const c = await exigirListo({ consentimiento: false, vinculo: false });
     const estado = await estadoVinculo(db, cliente.remoto());
-    res.json({ estado, vinculado: leer(db, 'cuenta') === emailDe(c), duplicadas: personasDuplicadas(db) });
+    res.json({ estado, vinculado: vinculadaA(c), duplicadas: personasDuplicadas(db) });
   }));
 
   router.post('/vincular', ruta(async (req, res) => {
     const modo = req.body?.modo;
     if (!MODOS.includes(modo)) return invalido(res, 'Elegí una opción válida.');
     const c = await exigirListo({ vinculo: false });
-    await programador.exclusivo(() => vincular(db, cliente.remoto(), modo, {
-      cuenta: emailDe(c), forzar: req.body?.forzar === true, backupsDir,
-    }));
+    const id = idDe(c);
+    await programador.exclusivo(async () => {
+      // Red de seguridad: la nube está vacía pero este equipo cree que ya subió todo (purga, borrado desde otro lado,
+      // respuesta perdida al borrar la cuenta): se olvida lo enviado y lo bajado para volver a subir todo.
+      if ((await estadoVinculo(db, cliente.remoto())) === 'cuenta_vacia' && leer(db, 'cuenta') === id
+        && (leer(db, 'cursor') !== null || leer(db, 'ultimo_envio') !== null)) {
+        enTransaccion(db, () => { reiniciarBajada(db); db.exec("DELETE FROM sync_estado WHERE clave IN ('ultimo_envio', 'resubir')"); });
+      }
+      await vincular(db, cliente.remoto(), modo, { cuenta: id, forzar: req.body?.forzar === true, backupsDir });
+    });
     res.json({ ok: true, ultimaSincronizacion: leer(db, 'ultima_sync') });
   }));
 
@@ -169,21 +201,31 @@ export function crearCuenta({ db, supabase, fetchFn = fetch, cliente = null, rut
   router.post('/salir', ruta(async (_req, res) => {
     await cliente.cerrarSesion();
     ultimaCuenta = null;
+    programador.reiniciar();
     res.json({ ok: true });
   }));
 
   // Borra la cuenta y los datos de la nube; los datos de este equipo quedan y la sincronización vuelve a empezar de cero.
+  // Si la respuesta de la nube se pierde (sin red / tiempo agotado) la cuenta puede haberse borrado igual: el reinicio
+  // local solo toca tablas de sincronización, así que se hace de todos modos y se informa el error.
   router.delete('/', ruta(async (_req, res) => {
     await leerCuenta();
     await programador.exclusivo(async () => {
-      await cliente.borrarCuenta();
-      enTransaccion(db, () => {
+      const reiniciarLocal = () => enTransaccion(db, () => {
         db.exec('DELETE FROM sync_borrados; DELETE FROM sync_muertas; DELETE FROM sync_alias');
         reiniciarBajada(db);
         db.exec("DELETE FROM sync_estado WHERE clave IN ('ultimo_envio', 'ultima_sync', 'resubir', 'cuenta')");
       });
+      try {
+        await cliente.borrarCuenta();
+      } catch (e) {
+        if (e instanceof ErrorSupabase && e.codigo === 'sin_red') reiniciarLocal();
+        throw e;
+      }
+      reiniciarLocal();
     });
     ultimaCuenta = null;
+    programador.reiniciar();
     res.json({ ok: true });
   }));
 

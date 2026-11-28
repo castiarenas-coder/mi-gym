@@ -15,13 +15,14 @@ const TIMERS = {
   clearInterval, clearTimeout,
 };
 
-export function crearProgramador({ sincronizar, intervaloMs = 300_000, reintentoMs = 60_000, ahora = () => new Date(), timers = TIMERS }) {
+export function crearProgramador({ sincronizar, intervaloMs = 300_000, reintentoMs = 60_000, reintentoMaxMs = 300_000, ahora = () => new Date(), timers = TIMERS }) {
   let corriendo = null;
   let seguiente = null;
   let intervalo = null;
   let reintento = null;
   let ultima = null;
   let error = null;
+  let espera = reintentoMs; // se duplica con cada falla de red hasta el tope y vuelve al inicio con un éxito
 
   const libre = () => corriendo.catch(() => {});
 
@@ -35,13 +36,15 @@ export function crearProgramador({ sincronizar, intervaloMs = 300_000, reintento
       const resultado = await sincronizar();
       ultima = ahora().toISOString();
       error = null;
+      espera = reintentoMs;
       return { estado: 'ok', resultado };
     } catch (e) {
-      if (MOTIVOS_OMITIDOS.includes(e?.codigo)) return { estado: 'omitida', motivo: e.codigo };
+      if (MOTIVOS_OMITIDOS.includes(e?.codigo)) { error = null; espera = reintentoMs; return { estado: 'omitida', motivo: e.codigo }; }
       const t = traducir(e);
       error = t.mensaje;
       if (e instanceof ErrorSupabase && e.codigo === 'sin_red') {
-        reintento = timers.setTimeout(() => { reintento = null; void pedir(); }, reintentoMs);
+        reintento = timers.setTimeout(() => { reintento = null; void pedir(); }, espera);
+        espera = Math.min(espera * 2, reintentoMaxMs);
       } else if (t.codigo === 'interno') {
         console.error('[sincronizacion]', e?.name ?? 'Error'); // sin el mensaje crudo: podría traer datos internos
       }
@@ -76,6 +79,8 @@ export function crearProgramador({ sincronizar, intervaloMs = 300_000, reintento
       if (intervalo) { timers.clearInterval(intervalo); intervalo = null; }
       cancelarReintento();
     },
+    /** Olvida el error y el reintento pendiente (al cerrar sesión o borrar la cuenta). */
+    reiniciar() { cancelarReintento(); error = null; espera = reintentoMs; },
     /** Avisa que hay algo nuevo (p. ej. terminó un entrenamiento). No espera. */
     avisar() { void pedir(); },
     /** "Sincronizar ahora": espera el resultado de la vuelta. */

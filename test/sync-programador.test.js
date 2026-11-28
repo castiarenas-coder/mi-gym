@@ -143,3 +143,50 @@ test('exclusivo() espera a la vuelta en curso y frena las nuevas mientras corre'
   assert.equal(m.llamadas, 2, 'la vuelta pedida mientras tanto corre después');
   await m.terminar();
 });
+
+test('una vuelta omitida limpia el error viejo y cancela el reintento (p. ej. tras cerrar sesion)', async () => {
+  const r = relojFalso(); let modo = 'red';
+  const p = crearProgramador({
+    sincronizar: async () => { if (modo === 'red') throw new ErrorSupabase('sin_red', 'x'); throw new ErrorCuenta('sin_sesion'); },
+    ahora, timers: r.timers,
+  });
+  await p.ahora();
+  assert.ok(p.estado().error);
+  assert.equal(r.pendientes(), 1);
+  modo = 'omitir';
+  await p.ahora();
+  assert.equal(p.estado().error, null);
+  assert.equal(r.pendientes(), 0);
+});
+
+test('reiniciar() borra el error y cancela el reintento pendiente', async () => {
+  const r = relojFalso();
+  const p = crearProgramador({ sincronizar: async () => { throw new ErrorSupabase('sin_red', 'x'); }, ahora, timers: r.timers });
+  await p.ahora();
+  assert.ok(p.estado().error);
+  p.reiniciar();
+  assert.equal(p.estado().error, null);
+  assert.equal(r.pendientes(), 0);
+});
+
+test('reintentos sin red: 60 s, 120 s, 240 s, tope de 5 min y vuelve a 60 s tras un exito', async () => {
+  const r = relojFalso(); let n = 0; let falla = true;
+  const p = crearProgramador({
+    sincronizar: async () => { n++; if (falla) throw new ErrorSupabase('sin_red', 'x'); return {}; },
+    ahora, timers: r.timers,
+  });
+  await p.ahora(); assert.equal(n, 1);
+  await r.avanzar(59_999); assert.equal(n, 1);
+  await r.avanzar(1); assert.equal(n, 2);
+  await r.avanzar(119_999); assert.equal(n, 2);
+  await r.avanzar(1); assert.equal(n, 3);
+  await r.avanzar(239_999); assert.equal(n, 3);
+  await r.avanzar(1); assert.equal(n, 4);
+  await r.avanzar(299_999); assert.equal(n, 4, 'tope de 5 minutos');
+  await r.avanzar(1); assert.equal(n, 5);
+  falla = false;
+  await r.avanzar(300_000); assert.equal(n, 6);
+  falla = true;
+  await p.ahora(); assert.equal(n, 7);
+  await r.avanzar(60_000); assert.equal(n, 8, 'tras un exito vuelve a 60 s');
+});

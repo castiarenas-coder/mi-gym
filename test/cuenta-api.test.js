@@ -15,7 +15,7 @@ afterEach(() => { while (abiertos.length) abiertos.pop()(); });
 
 function clienteFalso(info = null, remoto = crearRemotoEnMemoria()) {
   const c = {
-    info, remoto, borrada: false, codigos: [], falla: null,
+    info, r: remoto, borrada: false, codigos: [], falla: null,
     cuenta: async () => {
       if (c.falla) throw c.falla;
       if (!c.info) throw new ErrorSupabase('sin_sesion', 'No hay sesión iniciada');
@@ -28,11 +28,11 @@ function clienteFalso(info = null, remoto = crearRemotoEnMemoria()) {
     aceptarConsentimiento: async () => { c.info.consentimiento_en = '2026-11-27T00:00:00Z'; },
     cerrarSesion: async () => { c.info = null; },
     borrarCuenta: async () => { c.borrada = true; c.info = null; },
-    remoto: () => remoto,
+    remoto: () => c.r,
   };
   return c;
 }
-const PRO = { email: 'Ana@Correo.com', plan: 'pro', consentimiento_en: '2026-11-27T00:00:00Z' };
+const PRO = { id: 'u-1', email: 'Ana@Correo.com', plan: 'pro', consentimiento_en: '2026-11-27T00:00:00Z' };
 
 async function servidor(opts = {}) {
   const backupsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cuenta-bk-'));
@@ -47,7 +47,7 @@ test('sin variables de Supabase: GET /api/cuenta dice habilitada:false y el rest
   abiertos.push(s.cerrar);
   const r = await s.pedir('/api/cuenta');
   assert.equal(r.status, 200);
-  assert.deepEqual(r.json, { habilitada: false, sesion: null, vinculado: false, ultimaSincronizacion: null, error: null });
+  assert.deepEqual(r.json, { habilitada: false, google: false, sesion: null, vinculado: false, ultimaSincronizacion: null, error: null });
   for (const [m, ruta] of [['POST', '/api/cuenta/codigo'], ['POST', '/api/cuenta/sincronizar'], ['GET', '/api/cuenta/vinculo'], ['DELETE', '/api/cuenta']]) {
     assert.equal((await s.pedir(ruta, { method: m, body: m === 'POST' ? {} : undefined })).status, 404, `${m} ${ruta}`);
   }
@@ -93,7 +93,7 @@ test('flujo código → verificar con el cliente real guarda la sesión cifrada 
   const fetchFn = async (url) => {
     const resp = (status, cuerpo) => ({ ok: status < 300, status, json: async () => cuerpo, text: async () => JSON.stringify(cuerpo) });
     if (url.endsWith('/auth/v1/otp')) return resp(200, {});
-    if (url.endsWith('/auth/v1/verify')) return resp(200, { access_token: 'ACCESO-123', refresh_token: 'REN-456', expires_in: 3600, user: { email: 'ana@correo.com' } });
+    if (url.endsWith('/auth/v1/verify')) return resp(200, { access_token: 'ACCESO-123', refresh_token: 'REN-456', expires_in: 3600, user: { id: 'uuid-9', email: 'ana@correo.com' } });
     if (url.includes('/rest/v1/cuentas')) return resp(200, [{ plan: 'pro', consentimiento_en: null }]);
     return resp(404, {});
   };
@@ -141,9 +141,9 @@ test('sincronizar: 401 sin sesión, 402 plan gratis, 409 sin consentimiento, 409
   const s = await servidor({ cliente: c });
   const sync = () => s.pedir('/api/cuenta/sincronizar', { method: 'POST', body: {} });
   assert.equal((await sync()).status, 401);
-  c.info = { email: 'a@b.co', plan: 'gratis', consentimiento_en: null };
+  c.info = { id: 'u-2', email: 'a@b.co', plan: 'gratis', consentimiento_en: null };
   assert.equal((await sync()).status, 402);
-  c.info = { email: 'a@b.co', plan: 'pro', consentimiento_en: null };
+  c.info = { id: 'u-2', email: 'a@b.co', plan: 'pro', consentimiento_en: null };
   const sinConsent = await sync();
   assert.deepEqual([sinConsent.status, sinConsent.json.codigo], [409, 'sin_consentimiento']);
   c.info.consentimiento_en = 'x';
@@ -168,7 +168,7 @@ test('vínculo: estado, vincular (subir) guarda la cuenta; errores de modo y de 
   assert.deepEqual([nube.status, nube.json.codigo], [409, 'nube_vacia']);
   const ok = await s.pedir('/api/cuenta/vincular', { method: 'POST', body: { modo: 'subir' } });
   assert.equal(ok.status, 200);
-  assert.equal(estadoSync(s, 'cuenta'), 'ana@correo.com');
+  assert.equal(estadoSync(s, 'cuenta'), 'u-1', 'la cuenta se identifica por el id de usuario, no por el mail');
   assert.ok(c.remoto().documentos().length > 0);
   const g = await s.pedir('/api/cuenta');
   assert.equal(g.json.vinculado, true);
@@ -176,10 +176,10 @@ test('vínculo: estado, vincular (subir) guarda la cuenta; errores de modo y de 
 });
 
 test('vínculo: pide plan pro y, para vincular, consentimiento', async () => {
-  const c = clienteFalso({ email: 'a@b.co', plan: 'gratis', consentimiento_en: null });
+  const c = clienteFalso({ id: 'u-2', email: 'a@b.co', plan: 'gratis', consentimiento_en: null });
   const s = await servidor({ cliente: c });
   assert.equal((await s.pedir('/api/cuenta/vinculo')).status, 402);
-  c.info = { email: 'a@b.co', plan: 'pro', consentimiento_en: null };
+  c.info = { id: 'u-2', email: 'a@b.co', plan: 'pro', consentimiento_en: null };
   assert.equal((await s.pedir('/api/cuenta/vinculo')).status, 200);
   const r = await s.pedir('/api/cuenta/vincular', { method: 'POST', body: { modo: 'subir' } });
   assert.deepEqual([r.status, r.json.codigo], [409, 'sin_consentimiento']);
@@ -242,6 +242,7 @@ test('Google: redirige con un verificador y la vuelta canjea el código con ese 
   const s = await servidor({ cliente: c });
   const sinPendiente = await fetch(`${s.base}/api/cuenta/google/vuelta?code=abc`, { redirect: 'manual' });
   assert.equal(sinPendiente.status, 400);
+  assert.equal(c.canje, undefined);
   const ir = await fetch(`${s.base}/api/cuenta/google`, { redirect: 'manual' });
   assert.equal(ir.status, 302);
   const destino = new URL(ir.headers.get('location'));
@@ -284,4 +285,132 @@ test('al finalizar un entrenamiento se avisa al programador y sincroniza', async
   assert.equal(fin.status, 200);
   for (let i = 0; i < 20 && bajadas === antes; i++) await vaciar();
   assert.ok(bajadas > antes, 'corrió una vuelta de sincronización');
+});
+
+test('identidad: la misma cuenta con otro id (se recreó en la nube) no está vinculada; con otro mail pero el mismo id sí', async () => {
+  const c = clienteFalso(PRO);
+  const s = await servidor({ cliente: c });
+  await s.pedir('/api/cuenta/vincular', { method: 'POST', body: { modo: 'subir' } });
+  assert.equal((await s.pedir('/api/cuenta')).json.vinculado, true);
+  c.info = { ...PRO, id: 'u-NUEVO' };
+  assert.equal((await s.pedir('/api/cuenta')).json.vinculado, false);
+  const sync = await s.pedir('/api/cuenta/sincronizar', { method: 'POST', body: {} });
+  assert.deepEqual([sync.status, sync.json.codigo], [409, 'sin_vinculo']);
+  assert.equal((await s.pedir('/api/cuenta/vinculo')).json.vinculado, false);
+  c.info = { ...PRO, email: 'otro@mail.com' };
+  assert.equal((await s.pedir('/api/cuenta')).json.vinculado, true);
+});
+
+test('migración: un vínculo guardado con el mail de esta cuenta pasa a guardarse con el id', async () => {
+  const c = clienteFalso(PRO);
+  const s = await servidor({ cliente: c });
+  s.db.prepare("INSERT INTO sync_estado (clave, valor) VALUES ('cuenta', 'ana@correo.com')").run();
+  assert.equal((await s.pedir('/api/cuenta')).json.vinculado, true);
+  assert.equal(estadoSync(s, 'cuenta'), 'u-1');
+});
+
+test('migración: un mail guardado que no es el de esta cuenta no se toca ni vincula', async () => {
+  const c = clienteFalso(PRO);
+  const s = await servidor({ cliente: c });
+  s.db.prepare("INSERT INTO sync_estado (clave, valor) VALUES ('cuenta', 'otra@x.com')").run();
+  assert.equal((await s.pedir('/api/cuenta')).json.vinculado, false);
+  assert.equal(estadoSync(s, 'cuenta'), 'otra@x.com');
+});
+
+test('borrar cuenta con la respuesta perdida (sin red): igual reinicia lo local, avisa del error y al volver todo se re-sube', async () => {
+  const c = clienteFalso(PRO);
+  const s = await servidor({ cliente: c });
+  await s.pedir('/api/cuenta/vincular', { method: 'POST', body: { modo: 'subir' } });
+  const personas = s.db.prepare('SELECT COUNT(*) n FROM personas').get().n;
+  c.borrarCuenta = async () => { c.r = crearRemotoEnMemoria(); throw new ErrorSupabase('sin_red', 'timeout'); }; // la nube borró, la respuesta se perdió
+  const d = await s.pedir('/api/cuenta', { method: 'DELETE' });
+  assert.deepEqual([d.status, d.json.codigo], [503, 'sin_red']);
+  assert.equal(estadoSync(s, 'cuenta'), null);
+  assert.equal(estadoSync(s, 'ultimo_envio'), null);
+  assert.equal(s.db.prepare('SELECT COUNT(*) n FROM personas').get().n, personas);
+  c.info = { ...PRO, id: 'u-NUEVO' };
+  assert.equal((await s.pedir('/api/cuenta/vincular', { method: 'POST', body: { modo: 'subir' } })).status, 200);
+  assert.ok(c.r.documentos().length > 0, 'todo se volvió a subir');
+});
+
+test('red de seguridad: vincular con la nube vacía y restos de envíos anteriores de la misma cuenta re-sube todo', async () => {
+  const c = clienteFalso(PRO);
+  const s = await servidor({ cliente: c });
+  await s.pedir('/api/cuenta/vincular', { method: 'POST', body: { modo: 'subir' } });
+  assert.ok(c.r.documentos().length > 0);
+  c.r = crearRemotoEnMemoria(); // la nube quedó vacía (purga, borrado desde otro lado)
+  assert.equal((await s.pedir('/api/cuenta/vinculo')).json.estado, 'cuenta_vacia');
+  assert.equal((await s.pedir('/api/cuenta/vincular', { method: 'POST', body: { modo: 'subir' } })).status, 200);
+  assert.ok(c.r.documentos().length > 0);
+});
+
+test('Google: google:true por defecto; en Android o sin Supabase es false y /google responde 404 no_disponible', async () => {
+  const s = await servidor({ cliente: clienteFalso() });
+  assert.equal((await s.pedir('/api/cuenta')).json.google, true);
+  const a = await servidor({ cliente: clienteFalso(), plataforma: 'android' });
+  assert.equal((await a.pedir('/api/cuenta')).json.google, false);
+  const g = await a.pedir('/api/cuenta/google');
+  assert.deepEqual([g.status, g.json.codigo], [404, 'no_disponible']);
+  const d = await servidorDePrueba();
+  abiertos.push(d.cerrar);
+  assert.equal((await d.pedir('/api/cuenta')).json.google, false);
+});
+
+test('Google: una vuelta sin código no gasta el verificador; sigue valiendo hasta un canje exitoso', async () => {
+  const c = clienteFalso();
+  const s = await servidor({ cliente: c });
+  const ir = await fetch(`${s.base}/api/cuenta/google`, { redirect: 'manual' });
+  const verificador = new URL(ir.headers.get('location')).searchParams.get('v');
+  assert.equal((await fetch(`${s.base}/api/cuenta/google/vuelta`)).status, 400);
+  assert.equal((await fetch(`${s.base}/api/cuenta/google/vuelta?error=access_denied`)).status, 400);
+  assert.equal((await fetch(`${s.base}/api/cuenta/google/vuelta?code=BUENO`)).status, 200);
+  assert.deepEqual(c.canje, { codigo: 'BUENO', verificador });
+});
+
+test('Google: un canje fallido conserva el verificador para reintentar; vence a los 10 minutos', async () => {
+  let t = new Date(2026, 10, 27, 10, 0, 0);
+  const c = clienteFalso();
+  const original = c.canjearCodigoGoogle;
+  let falla = true;
+  c.canjearCodigoGoogle = async (...a) => { if (falla) throw new ErrorSupabase('servidor', 'x'); return original(...a); };
+  const s = await servidor({ cliente: c, ahora: () => new Date(t) });
+  await fetch(`${s.base}/api/cuenta/google`, { redirect: 'manual' });
+  assert.equal((await fetch(`${s.base}/api/cuenta/google/vuelta?code=A`)).status, 502);
+  falla = false;
+  assert.equal((await fetch(`${s.base}/api/cuenta/google/vuelta?code=B`)).status, 200);
+  await fetch(`${s.base}/api/cuenta/google`, { redirect: 'manual' });
+  t = new Date(t.getTime() + 11 * 60_000);
+  assert.equal((await fetch(`${s.base}/api/cuenta/google/vuelta?code=C`)).status, 400);
+});
+
+test('salir limpia el error viejo de la sincronización', async () => {
+  const c = clienteFalso(PRO);
+  const s = await servidor({ cliente: c });
+  await s.pedir('/api/cuenta/vincular', { method: 'POST', body: { modo: 'subir' } });
+  c.r.fallaBajada = new ErrorSupabase('sin_red', 'x');
+  assert.equal((await s.pedir('/api/cuenta/sincronizar', { method: 'POST', body: {} })).status, 503);
+  assert.match((await s.pedir('/api/cuenta')).json.error, /conexión/i);
+  await s.pedir('/api/cuenta/salir', { method: 'POST', body: {} });
+  assert.equal((await s.pedir('/api/cuenta')).json.error, null);
+});
+
+test('sin red tras reiniciar la app: GET /api/cuenta usa el mail de la sesión guardada y responde 200 con el error', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cuenta-clave-'));
+  let caida = false;
+  const fetchFn = async (url) => {
+    if (caida) throw new Error('fetch failed');
+    const resp = (status, cuerpo) => ({ ok: status < 300, status, json: async () => cuerpo, text: async () => JSON.stringify(cuerpo) });
+    if (url.endsWith('/auth/v1/verify')) return resp(200, { access_token: 'AT', refresh_token: 'RT', expires_in: 3600, user: { id: 'uuid-9', email: 'ana@correo.com' } });
+    return resp(200, [{ plan: 'pro', consentimiento_en: null }]);
+  };
+  const s = await servidor({ fetchFn, rutaClave: path.join(dir, 'clave-equipo') });
+  abiertos.push(() => fs.rmSync(dir, { recursive: true, force: true }));
+  await s.pedir('/api/cuenta/verificar', { method: 'POST', body: { email: 'ana@correo.com', codigo: '123456' } });
+  s.db.prepare("INSERT INTO sync_estado (clave, valor) VALUES ('cuenta', 'uuid-9')").run();
+  caida = true;
+  const r = await s.pedir('/api/cuenta');
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.json.sesion, { email: 'ana@correo.com', plan: null, consentimiento: null });
+  assert.equal(r.json.vinculado, true);
+  assert.match(r.json.error, /conexión/i);
 });
