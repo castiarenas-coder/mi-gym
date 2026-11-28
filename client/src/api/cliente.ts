@@ -10,10 +10,21 @@ function cabeceraPersona(): Record<string, string> {
 // Los cambios sin esta cabecera los rechaza el servidor: una página ajena no puede mandarla sin permiso (CORS).
 const CABECERA_APP = { 'X-Mi-Gym': '1' }
 
+/** Error de la API: además del texto en castellano guarda el código estable del servidor (p. ej. 'otra_cuenta'). */
+export class ErrorApi extends Error {
+  estado: number
+  codigo?: string
+  constructor(mensaje: string, estado: number, codigo?: string) {
+    super(mensaje)
+    this.estado = estado
+    this.codigo = codigo
+  }
+}
+
 async function leer<T>(res: Response): Promise<T> {
   if (!res.ok) {
-    const cuerpo = (await res.json().catch(() => null)) as { error?: string } | null
-    throw new Error(cuerpo?.error ?? `Error ${res.status}`)
+    const cuerpo = (await res.json().catch(() => null)) as { error?: string; codigo?: string } | null
+    throw new ErrorApi(cuerpo?.error ?? `Error ${res.status}`, res.status, cuerpo?.codigo)
   }
   return res.json() as Promise<T>
 }
