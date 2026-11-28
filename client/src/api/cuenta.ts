@@ -71,8 +71,14 @@ function useMutacionCuenta<V, R>(fn: (v: V) => Promise<R>, opciones: { datos?: b
 export const useEnviarCodigo = () => useMutacionCuenta((email: string) => enviar<{ ok: true }>('POST', '/cuenta/codigo', { email }))
 export const useVerificarCodigo = () => useMutacionCuenta((v: { email: string; codigo: string }) => enviar<{ ok: true }>('POST', '/cuenta/verificar', v))
 export const useAceptarConsentimiento = () => useMutacionCuenta(() => enviar<{ ok: true }>('POST', '/cuenta/consentimiento', {}))
+/** Devuelve las duplicadas ya con los datos juntos: se piden de nuevo, porque antes de juntar no se pueden ver las de otros equipos. */
 export const useVincular = () => useMutacionCuenta(
-  (v: { modo: ModoVinculo; forzar?: boolean }) => enviar<{ ok: true; ultimaSincronizacion: string | null }>('POST', '/cuenta/vincular', v.forzar ? v : { modo: v.modo }),
+  async (v: { modo: ModoVinculo; forzar?: boolean }) => {
+    const r = await enviar<{ ok: true; ultimaSincronizacion: string | null }>('POST', '/cuenta/vincular', v.forzar ? v : { modo: v.modo })
+    let duplicadas: Duplicada[] = []
+    if (v.modo === 'juntar') duplicadas = await api<Vinculo>('/cuenta/vinculo').then(x => x.duplicadas).catch(() => [])
+    return { ...r, duplicadas }
+  },
   { datos: true },
 )
 export const useUnificar = () => useMutacionCuenta((v: { conservar: string; duplicada: string }) => enviar<{ ok: true }>('POST', '/cuenta/unificar', v), { datos: true })

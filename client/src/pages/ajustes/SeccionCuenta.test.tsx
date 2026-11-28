@@ -4,6 +4,7 @@ import { vi } from 'vitest'
 import { conProveedores, instalarApi } from '../../test/utils'
 import { SeccionCuenta } from './SeccionCuenta'
 import { haceCuanto } from '../../api/cuenta'
+import { ConfirmarDialogo } from '../../components/ConfirmarDialogo'
 
 interface Estado {
   habilitada: boolean
@@ -126,16 +127,52 @@ describe('SeccionCuenta', () => {
     await waitFor(() => expect(llamadas.find(l => l.ruta === '/api/cuenta/vincular')?.body).toEqual({ modo: 'reemplazar' }))
   })
 
-  it('juntar ofrece unificar duplicadas', async () => {
+  it('juntar ofrece unificar las duplicadas que salen DESPUÉS de juntar', async () => {
+    let juntado = false
     const { llamadas } = montar({ sesion: PRO }, (_m, u) => {
-      if (u.pathname === '/api/cuenta/vinculo') return { estado: 'ambos_con_datos', vinculado: false, duplicadas: [{ conservar: 'a', duplicada: 'b', nombre: 'Press banca' }] }
-      if (u.pathname === '/api/cuenta/vincular') return { ok: true, ultimaSincronizacion: null }
+      if (u.pathname === '/api/cuenta/vinculo') return { estado: 'ambos_con_datos', vinculado: juntado, duplicadas: juntado ? [{ conservar: 'a', duplicada: 'b', nombre: 'Press banca' }] : [] }
+      if (u.pathname === '/api/cuenta/vincular') { juntado = true; return { ok: true, ultimaSincronizacion: null } }
       if (u.pathname === '/api/cuenta/unificar') return { ok: true }
     })
     await userEvent.click(await screen.findByRole('button', { name: 'Juntar' }))
     expect(await screen.findByText(/Press banca/)).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Unificar' }))
+    expect(screen.getByRole('button', { name: 'Dejar así Press banca' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Unificar Press banca' }))
     await waitFor(() => expect(llamadas.find(l => l.ruta === '/api/cuenta/unificar')?.body).toEqual({ conservar: 'a', duplicada: 'b' }))
+  })
+
+  it('sesión vencida: sin sesión pero con error, lo muestra como alerta', async () => {
+    montar({ sesion: null, error: 'Tu sesión venció. Volvé a iniciar sesión.' })
+    expect(await screen.findByRole('alert')).toHaveTextContent('Tu sesión venció. Volvé a iniciar sesión.')
+  })
+
+  it('un 401 al sincronizar deja el aviso visible aunque la sesión desaparezca', async () => {
+    let vencida = false
+    instalarApi((m, u) => {
+      if (u.pathname === '/api/cuenta' && m === 'GET') return vencida ? { ...BASE, sesion: null, error: 'Tu sesión venció. Volvé a iniciar sesión.' } : { ...BASE, sesion: PRO, vinculado: true }
+      if (u.pathname === '/api/cuenta/sincronizar') { vencida = true; return new Response(JSON.stringify({ error: 'Tu sesión venció. Volvé a iniciar sesión.', codigo: 'sesion_vencida' }), { status: 401 }) }
+    })
+    conProveedores(<SeccionCuenta />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Sincronizar ahora' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Tu sesión venció')
+    expect(await screen.findByText('Iniciar sesión')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Tu sesión venció')
+  })
+
+  it('el consentimiento nombra responsable, finalidad y derechos', async () => {
+    montar({ sesion: { ...PRO, consentimiento: false } })
+    expect(await screen.findByText(/Responsable de los datos: Rumbo Fit/)).toBeInTheDocument()
+    expect(screen.getByText(/Finalidad: sincronizar tus datos entre tus equipos/)).toBeInTheDocument()
+    expect(screen.getByText(/acceder, corregir y borrar tus datos/)).toBeInTheDocument()
+  })
+
+  it('borrar cuenta sin red avisa que no se pudo confirmar', async () => {
+    montar({ sesion: PRO, vinculado: true }, (m, u) => {
+      if (u.pathname === '/api/cuenta' && m === 'DELETE') return new Response(JSON.stringify({ error: 'sin red', codigo: 'sin_red' }), { status: 503 })
+    })
+    await userEvent.click(await screen.findByRole('button', { name: 'Borrar cuenta' }))
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Borrar cuenta' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('No pudimos confirmar el borrado. Revisá tu conexión y fijate en un rato si tu cuenta sigue.')
   })
 
   it('cuenta vacía: sube después de confirmar', async () => {
@@ -178,7 +215,7 @@ describe('SeccionCuenta', () => {
     })
     await userEvent.click(await screen.findByRole('button', { name: 'Borrar cuenta' }))
     const dialogo = await screen.findByRole('dialog')
-    expect(within(dialogo).getByText('Se borran tus datos de la nube. Los de este equipo quedan.')).toBeInTheDocument()
+    expect(within(dialogo).getByText('Se borran tu cuenta y tus datos de la nube. No se puede deshacer. Los datos de este equipo quedan.')).toBeInTheDocument()
     expect(llamadas.some(l => l.metodo === 'DELETE')).toBe(false)
     await userEvent.click(within(dialogo).getByRole('button', { name: 'Borrar cuenta' }))
     await waitFor(() => expect(llamadas.some(l => l.metodo === 'DELETE' && l.ruta === '/api/cuenta')).toBe(true))
@@ -190,6 +227,16 @@ describe('SeccionCuenta', () => {
     })
     await userEvent.click(await screen.findByRole('button', { name: 'Cerrar sesión' }))
     await waitFor(() => expect(llamadas.some(l => l.ruta === '/api/cuenta/salir')).toBe(true))
+  })
+})
+
+describe('ConfirmarDialogo ocupado', () => {
+  it('no se puede cancelar mientras está ocupado', async () => {
+    const cancelar = vi.fn()
+    conProveedores(<ConfirmarDialogo titulo="t" mensaje="m" ocupado onConfirmar={() => undefined} onCancelar={cancelar} />)
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toBeDisabled()
+    await userEvent.keyboard('{Escape}')
+    expect(cancelar).not.toHaveBeenCalled()
   })
 })
 

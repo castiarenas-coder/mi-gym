@@ -31,12 +31,12 @@ export function SeccionCuenta() {
       <p className="bloque__ayuda">Es opcional. Rumbo Fit funciona igual sin cuenta; con el plan Pro podés tener tus datos al día en todos tus equipos.</p>
       {estado.sesion
         ? <ConSesion estado={estado} sesion={estado.sesion} />
-        : <SinSesion google={estado.google} esperandoGoogle={esperandoGoogle} onGoogle={() => { window.open('/api/cuenta/google', '_blank'); setEsperandoGoogle(true) }} />}
+        : <SinSesion error={estado.error} google={estado.google} esperandoGoogle={esperandoGoogle} onGoogle={() => { window.open('/api/cuenta/google', '_blank'); setEsperandoGoogle(true) }} />}
     </section>
   )
 }
 
-function SinSesion({ google, esperandoGoogle, onGoogle }: { google: boolean; esperandoGoogle: boolean; onGoogle: () => void }) {
+function SinSesion({ error: errorServidor, google, esperandoGoogle, onGoogle }: { error: string | null; google: boolean; esperandoGoogle: boolean; onGoogle: () => void }) {
   const enviarCodigo = useEnviarCodigo()
   const verificar = useVerificarCodigo()
   const [email, setEmail] = useState('')
@@ -85,7 +85,7 @@ function SinSesion({ google, esperandoGoogle, onGoogle }: { google: boolean; esp
         </div>
       )}
       {esperandoGoogle && <p className="aviso" role="status">Esperando que termines en la otra ventana…</p>}
-      {error && <p className="aviso aviso--error" role="alert">{error}</p>}
+      {(error ?? errorServidor) && <p className="aviso aviso--error" role="alert">{error ?? errorServidor}</p>}
     </>
   )
 }
@@ -122,11 +122,16 @@ function ConSesion({ estado, sesion }: { estado: EstadoCuenta; sesion: NonNullab
       {aBorrar && (
         <ConfirmarDialogo
           titulo="¿Borrar tu cuenta?"
-          mensaje="Se borran tus datos de la nube. Los de este equipo quedan."
+          mensaje="Se borran tu cuenta y tus datos de la nube. No se puede deshacer. Los datos de este equipo quedan."
           confirmar="Borrar cuenta"
           ocupado={borrar.isPending}
           onCancelar={() => setABorrar(false)}
-          onConfirmar={() => borrar.mutate(undefined, { onSettled: () => setABorrar(false), onError: alFallar })}
+          onConfirmar={() => borrar.mutate(undefined, {
+            onSettled: () => setABorrar(false),
+            onError: e => setError(e instanceof ErrorApi && e.codigo === 'sin_red'
+              ? 'No pudimos confirmar el borrado. Revisá tu conexión y fijate en un rato si tu cuenta sigue.'
+              : e.message),
+          })}
         />
       )}
     </>
@@ -141,7 +146,9 @@ function Consentimiento({ onError }: { onError: (e: Error) => void }) {
         Para sincronizar, tus datos se guardan en la nube: personas, rutinas, entrenamientos, medidas y favoritos. Tu peso y tus medidas corporales son
         datos de salud (datos sensibles según la Ley 25.326 de Protección de Datos Personales) y también se suben. Solo vos podés verlos con tu cuenta.
       </p>
-      <p className="bloque__ayuda">Podés pedir en cualquier momento borrar tu cuenta y todo lo que subiste desde esta misma sección.</p>
+      <p className="bloque__ayuda">Responsable de los datos: Rumbo Fit.</p>
+      <p className="bloque__ayuda">Finalidad: sincronizar tus datos entre tus equipos.</p>
+      <p className="bloque__ayuda">Tenés derecho a acceder, corregir y borrar tus datos. Podés borrar tu cuenta y todo lo que subiste, cuando quieras, desde esta misma sección.</p>
       <div className="acciones">
         <button type="button" className="boton boton--principal" disabled={aceptar.isPending} onClick={() => aceptar.mutate(undefined, { onError })}>Aceptar</button>
       </div>
@@ -186,13 +193,14 @@ function Vincular({ onError, onDuplicadas }: { onError: (e: Error) => void; onDu
   function ejecutar(modo: ModoVinculo, forzado = false) {
     setConfirmar(null)
     setForzar(null)
-    vincular.mutate({ modo, ...(forzado ? { forzar: true } : {}) }, {
-      onSuccess: () => { if (modo === 'juntar' && v && v.duplicadas.length > 0) onDuplicadas(v.duplicadas) },
-      onError: e => {
+    // mutateAsync: al juntar, la sección se desmonta (ya quedó vinculado) y los callbacks de mutate no llegarían.
+    vincular.mutateAsync({ modo, ...(forzado ? { forzar: true } : {}) }).then(
+      r => { if (r.duplicadas.length > 0) onDuplicadas(r.duplicadas) },
+      (e: Error) => {
         if (e instanceof ErrorApi && e.codigo === 'otra_cuenta' && (modo === 'subir' || modo === 'juntar')) setForzar({ modo, mensaje: e.message })
         else onError(e)
       },
-    })
+    )
   }
 
   if (vinculo.isError) return <p className="aviso aviso--error" role="alert">{vinculo.error.message}</p>
@@ -264,8 +272,8 @@ function Unificar({ duplicadas, onQuitar, onError }: { duplicadas: Duplicada[]; 
         {duplicadas.map(d => (
           <li key={`${d.conservar}-${d.duplicada}`} className="persona-fila">
             <span className="persona-fila__nombre">{d.nombre}</span>
-            <button type="button" className="boton boton--secundario" disabled={unificar.isPending} onClick={() => unificar.mutate({ conservar: d.conservar, duplicada: d.duplicada }, { onSuccess: () => onQuitar(d), onError })}>Unificar</button>
-            <button type="button" className="boton boton--texto" onClick={() => onQuitar(d)}>Dejar así</button>
+            <button type="button" className="boton boton--secundario" aria-label={`Unificar ${d.nombre}`} disabled={unificar.isPending} onClick={() => unificar.mutate({ conservar: d.conservar, duplicada: d.duplicada }, { onSuccess: () => onQuitar(d), onError })}>Unificar</button>
+            <button type="button" className="boton boton--texto" aria-label={`Dejar así ${d.nombre}`} onClick={() => onQuitar(d)}>Dejar así</button>
           </li>
         ))}
       </ul>
