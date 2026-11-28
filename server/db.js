@@ -1,16 +1,38 @@
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
+
+// Reloj de las marcas de sincronización. Los disparadores llaman a `ahora_sync()`, una función que cada conexión registra en
+// openDb. Las pruebas pueden reemplazar el reloj (`fijarReloj(() => milisegundos)`) para que los milisegundos sean controlados
+// (y los empates, frecuentes); `fijarReloj(null)` vuelve al reloj real.
+let reloj = null;
+export function fijarReloj(fn) { reloj = fn; }
+// Lo mismo con los uid: las pruebas pueden inyectar un generador con semilla (`fijarUuid(() => '...')`; null = aleatorio).
+let generadorUuid = null;
+export function fijarUuid(fn) { generadorUuid = fn; }
+const ahoraIso = () => new Date(reloj ? reloj() : Date.now()).toISOString();
+/** Registra en la conexión las funciones que usan los disparadores (migrar y openDb lo hacen solos). */
+export function registrarFunciones(db) {
+  // La marca de un cambio nuevo nunca es menor ni igual al último envío de este equipo (los reintentos de marca +1 ms de la
+  // sincronización pueden dejar el último envío "en el futuro" del reloj): si no, ese cambio no se subiría jamás.
+  let envio = null;
+  db.function('ahora_sync', { deterministic: true }, () => {
+    const ahora = ahoraIso();
+    let ultimo = null;
+    try { envio ??= db.prepare("SELECT valor FROM sync_estado WHERE clave = 'ultimo_envio'"); ultimo = envio.get()?.valor ?? null; } catch { envio = null; }
+    return ultimo && ahora <= ultimo ? new Date(Date.parse(ultimo) + 1).toISOString() : ahora;
+  });
+  db.function('uuid_sync', () => (generadorUuid ? generadorUuid() : randomUUID()));
+}
 
 // Ayudas para la migración 6 (identidades y marcas de cambio para sincronizar).
-const AHORA = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
+const AHORA = '(SELECT ahora_sync())';
 // Marca de un cambio sobre una fila que ya la tiene: nunca menor ni igual a la anterior (+1 ms, aritmética exacta de
 // SQLite en milisegundos), así una edición local supera siempre a una versión con fecha adelantada y se sube y gana.
 const MONOTONO = `MAX(${AHORA}, COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', actualizado, '+0.001 seconds'), ''))`;
-// UUID v4 con 16 bytes al azar; `fila` se nombra para que SQLite lo evalúe una vez por fila.
-const UUID_V4 = (fila) => `(WITH h(x) AS (SELECT lower(hex(randomblob(16))) WHERE ${fila} IS NOT NULL)
-        SELECT substr(x, 1, 8) || '-' || substr(x, 9, 4) || '-4' || substr(x, 14, 3) || '-'
-          || substr('89ab', 1 + abs(random()) % 4, 1) || substr(x, 18, 3) || '-' || substr(x, 21, 12) FROM h)`;
+// UUID v4 (la función `uuid_sync` se evalúa una vez por fila).
+const UUID_V4 = () => 'uuid_sync()';
 // Columnas de contenido de cada tabla sincronizada (todas menos `actualizado` y `uid`). El disparador de cambio
 // escucha solo estas: un UPDATE que únicamente escribe `actualizado` no lo dispara, así que fijar la marca a mano
 // siempre se respeta (aunque el valor sea igual al anterior). Si una migración futura agrega columnas, hay que sumarlas acá.
@@ -378,6 +400,7 @@ export function versionActual(db) {
 }
 
 export function migrar(db, migraciones = MIGRACIONES) {
+  registrarFunciones(db);
   db.exec('CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY, aplicada TEXT NOT NULL)');
   const actual = versionActual(db);
   for (const m of [...migraciones].sort((a, b) => a.version - b.version)) {

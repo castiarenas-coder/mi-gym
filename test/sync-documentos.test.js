@@ -328,7 +328,7 @@ test('aplicarDocumento funciona dentro de una transacción externa', () => {
   assert.equal(b.isTransaction, false);
 });
 
-test('con la persona borrada localmente: lo anterior al borrado se ignora y lo posterior espera (la persona puede revivir)', () => {
+test('con la persona borrada localmente: lo anterior al borrado se ignora y lo posterior la recupera (gana el más nuevo)', () => {
   const a = conDatos();
   const b = base();
   copiar(a, b);
@@ -336,9 +336,11 @@ test('con la persona borrada localmente: lo anterior al borrado se ignora y lo p
   for (const tipo of ['rutina', 'sesion', 'medida', 'perfil', 'favorito']) {
     const d = cambiosLocales(a, null).find(x => x.tipo === tipo);
     assert.equal(aplicarDocumento(b, { ...d, actualizado: '0000' }), 'ignorado', tipo);
-    assert.equal(aplicarDocumento(b, { ...d, actualizado: '9999' }), 'en_espera', tipo);
+    assert.equal(aplicarDocumento(b, { ...d, actualizado: '9999' }), 'aplicado', tipo);
   }
+  assert.deepEqual(filas(b, 'SELECT nombre FROM personas WHERE uid = ?', d0uid(a)), [{ nombre: 'Persona recuperada' }]);
 });
+const d0uid = (db) => cambiosLocales(db, null).find(x => x.tipo === 'persona' && x.datos.nombre === 'Ana').clave;
 
 test('los días de una rutina se escriben con orden normalizado', () => {
   const a = conDatos();
@@ -366,7 +368,7 @@ test('borrar una persona local deja lápida de ella y de todo lo suyo con la mis
   assert.equal(filas(db, 'SELECT fecha FROM sync_muertas WHERE persona = ?', ana)[0].fecha, borrados[0].actualizado);
 });
 
-test('un borrado remoto de una persona que nunca estuvo acá la anota como muerta: sus hijos viejos se ignoran y los nuevos esperan', () => {
+test('un borrado remoto de una persona que nunca estuvo acá la anota como muerta: sus hijos viejos se ignoran y los nuevos la recuperan', () => {
   const a = conDatos();
   const b = base();
   const docs = cambiosLocales(a, null);
@@ -376,7 +378,6 @@ test('un borrado remoto de una persona que nunca estuvo acá la anota como muert
   assert.equal(aplicarDocumento(b, { tipo: 'persona', clave: persona.clave, actualizado: T, borrado: true, datos: null }), 'ignorado');
   assert.equal(aplicarDocumento(b, { ...rutina, actualizado: '2026-05-01T00:00:00.000Z' }), 'ignorado');
   assert.equal(aplicarDocumento(b, { ...rutina, actualizado: T }), 'ignorado');
-  assert.equal(aplicarDocumento(b, { ...rutina, actualizado: '2026-07-01T00:00:00.000Z' }), 'en_espera');
   // La persona viva más nueva la revive y limpia el registro; una más vieja o igual al borrado no.
   assert.equal(aplicarDocumento(b, { ...persona, actualizado: T }), 'ignorado');
   assert.equal(aplicarDocumento(b, { ...persona, actualizado: '2026-06-02T00:00:00.000Z' }), 'degradado');
@@ -384,9 +385,15 @@ test('un borrado remoto de una persona que nunca estuvo acá la anota como muert
   assert.deepEqual(filas(b, 'SELECT fecha, viva FROM sync_muertas'), [{ fecha: T, viva: 1 }]);
   assert.equal(cambiosLocales(b, null).find(d => d.tipo === 'persona' && d.clave === persona.clave).datos.muerta_desde, T);
   assert.equal(aplicarDocumento(b, { ...rutina, actualizado: '2026-07-01T00:00:00.000Z' }), 'aplicado');
+  // Sin que la persona viva en ningún equipo, un hijo posterior al borrado la recrea ("gana el más nuevo") con el mismo uid.
+  const c = base();
+  aplicarDocumento(c, { tipo: 'persona', clave: persona.clave, actualizado: T, borrado: true, datos: null });
+  assert.equal(aplicarDocumento(c, { ...rutina, actualizado: '2026-07-01T00:00:00.000Z' }), 'aplicado');
+  assert.deepEqual(filas(c, 'SELECT nombre, creada, actualizado FROM personas WHERE uid = ?', persona.clave), [{ nombre: 'Persona recuperada', creada: T, actualizado: '2026-07-01T00:00:00.000Z' }]);
+  assert.deepEqual(filas(c, 'SELECT fecha, viva FROM sync_muertas'), [{ fecha: T, viva: 1 }]);
 });
 
-test('un borrado remoto con hijos locales más nuevos revive la persona y mata lo anterior con lápida de la fecha del borrado', () => {
+test('un borrado remoto con hijos locales más nuevos revive la persona y mata lo anterior (con lápida de la fecha del borrado en las claves de la persona)', () => {
   const a = conDatos();
   const b = base();
   copiar(a, b);
@@ -407,7 +414,9 @@ test('un borrado remoto con hijos locales más nuevos revive la persona y mata l
   assert.equal(filas(b, 'SELECT 1 FROM favoritos').length, 0);
   assert.equal(filas(b, 'SELECT 1 FROM perfil').length, 0);
   const lapidas = filas(b, 'SELECT tipo, fecha FROM sync_borrados').filter(l => l.tipo !== 'persona');
-  assert.ok(lapidas.length >= 3 && lapidas.every(l => l.fecha === T), JSON.stringify(lapidas));
+  // Las claves que llevan a la persona (favorito, perfil, medida) quedan con lápida de la fecha del borrado; las sesiones y
+  // rutinas, que se identifican por su uid, se quitan sin lápida (una versión más nueva, pasada a otra persona, sigue viva).
+  assert.ok(lapidas.length >= 2 && lapidas.every(l => l.fecha === T && l.tipo !== 'sesion' && l.tipo !== 'rutina'), JSON.stringify(lapidas));
   assert.deepEqual(filas(b, 'SELECT fecha, viva FROM sync_muertas'), [{ fecha: T, viva: 1 }]);
   // Y lo declara en su documento, para que los demás maten lo anterior aunque no hayan visto el borrado.
   assert.equal(cambiosLocales(b, null).find(d => d.tipo === 'persona' && d.clave === ana).datos.muerta_desde, T);
