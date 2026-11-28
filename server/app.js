@@ -14,6 +14,7 @@ import { conPersona, personasRouter } from './personas.js';
 import { crearComprobador } from './actualizacion.js';
 import { esLoopback } from './puerto.js';
 import { controlDeAcceso, protegerPedidos } from './acceso.js';
+import { crearCuenta } from './routes/cuenta.js';
 
 export function leerVersion(raiz) {
   try { return JSON.parse(fs.readFileSync(path.join(raiz, 'package.json'), 'utf8')).version; } catch { return '0.0.0'; }
@@ -25,7 +26,7 @@ export function direccionesLan(port) {
     .map(i => `http://${i.address}:${port}`);
 }
 
-export function createApp({ db, imgDir, mediaDir, clientDir, version = '0.0.0', ahora = () => new Date(), dbFile = null, backupsDir = null, lan = false, port = 0, plataforma = 'escritorio', token = null, direcciones = direccionesLan, actualizacion = null, apagar = null }) {
+export function createApp({ db, imgDir, mediaDir, clientDir, version = '0.0.0', ahora = () => new Date(), dbFile = null, backupsDir = null, lan = false, port = 0, plataforma = 'escritorio', token = null, direcciones = direccionesLan, actualizacion = null, apagar = null, supabase = null, fetchFn, cliente = null, rutaClave = null, timers }) {
   const comprobarActualizacion = actualizacion ?? crearComprobador({ version });
   const app = express();
   app.disable('x-powered-by');
@@ -56,7 +57,12 @@ export function createApp({ db, imgDir, mediaDir, clientDir, version = '0.0.0', 
       res.on('finish', () => setTimeout(apagar, 50));
     });
   }
-  const sesiones = sesionesRouter(db, { ahora });
+  // Cuenta en la nube: sin proyecto de Supabase queda deshabilitada y solo GET /api/cuenta lo dice.
+  const cuenta = supabase || cliente ? crearCuenta({ db, supabase, fetchFn, cliente, rutaClave, backupsDir, ahora, timers }) : null;
+  app.locals.programador = cuenta?.programador ?? null;
+  if (cuenta) app.use('/api/cuenta', cuenta.router);
+  else app.get('/api/cuenta', (_req, res) => res.json({ habilitada: false, sesion: null, vinculado: false, ultimaSincronizacion: null, error: null }));
+  const sesiones = sesionesRouter(db, { ahora, alFinalizar: () => cuenta?.programador.avisar() });
   const progreso = progresoRouter(db, { ahora });
   app.use('/api/personas', personasRouter(db));
   // Todo lo demás es de la persona activa (encabezado X-Persona).
