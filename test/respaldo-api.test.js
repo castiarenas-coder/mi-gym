@@ -64,7 +64,7 @@ test('exportar devuelve todo como descarga JSON con versión y fecha', async () 
   const r = await pedir('/api/respaldo/exportar');
   assert.equal(r.status, 200);
   const datos = r.json;
-  assert.equal(datos.schema_version, 5);
+  assert.equal(datos.schema_version, 6);
   assert.equal(datos.fecha, '2026-11-25T10:00:00.000Z');
   for (const t of tablas) assert.ok(Array.isArray(datos[t]), t);
   assert.equal(datos.rutinas.length, 1 + 2, 'la rutina propia más las 2 de ejemplo de la persona nueva');

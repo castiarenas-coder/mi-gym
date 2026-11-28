@@ -8,6 +8,7 @@ import { FormularioPersona } from '../components/FormularioPersona'
 import { useActualizacion, useApagar, useImportar, useInfo, useRespaldoAhora, useRespaldos, useRestaurar, type Respaldo } from '../api/ajustes'
 import { CabeceraPagina } from '../components/ui/CabeceraPagina'
 import { ConfirmarDialogo } from '../components/ConfirmarDialogo'
+import { SeccionCuenta } from './ajustes/SeccionCuenta'
 
 function fechaHora(iso: string) {
   return new Date(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -187,6 +188,8 @@ export function Ajustes() {
       {mensaje && <p className={mensaje.tipo === 'ok' ? 'aviso aviso--ok' : 'aviso aviso--error'} role={mensaje.tipo === 'ok' ? 'status' : 'alert'}>{mensaje.texto}</p>}
 
       <SeccionApariencia />
+
+      <SeccionCuenta />
 
       <SeccionPersonas />
 

@@ -62,7 +62,7 @@ export function mejoresDe(filas) {
 }
 
 /** Devuelve { router, porEjercicio }: el segundo se monta bajo /api/ejercicios. */
-export function sesionesRouter(db, { ahora = () => new Date() } = {}) {
+export function sesionesRouter(db, { ahora = () => new Date(), alFinalizar = () => {} } = {}) {
   const router = Router();
 
   const transaccion = fn => {
@@ -308,6 +308,8 @@ export function sesionesRouter(db, { ahora = () => new Date() } = {}) {
         for (const x of tanda) finalizarUna(x, fin);
       }
     });
+    // Terminó un entrenamiento: buen momento para sincronizar (no espera ni frena nada).
+    if (body.finalizar === true && s.estado === 'en_curso') { try { alFinalizar(); } catch { /* la sincronización nunca frena el entrenamiento */ } }
     res.json(cargarSesion(s.id));
   });
 

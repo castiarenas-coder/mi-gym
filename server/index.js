@@ -25,6 +25,7 @@ let cerrar = () => {};
 const app = createApp({
   db, imgDir: config.imgDir, mediaDir: config.mediaDir, clientDir: config.clientDir, version: leerVersion(config.raiz),
   dbFile: path.resolve(config.dbFile), backupsDir: config.backupsDir, lan, port: config.port, plataforma: config.plataforma, token: config.token,
+  supabase: config.supabase, rutaClave: path.join(config.dataDir ?? path.dirname(config.dbFile), 'clave-equipo'),
   // Solo la versión instalada en PC ofrece "Cerrar Rumbo Fit" (no hay consola desde la que cortarlo); en Android no tiene sentido.
   apagar: config.instalado && config.plataforma !== 'android' ? () => cerrar() : null,
 });
@@ -38,6 +39,8 @@ setInterval(respaldar, 24 * 60 * 60 * 1000).unref();
 // En el celular la copia automática de Google lleva el archivo de la base: se vuelca el registro pendiente (WAL) seguido
 // para que esa copia no quede desactualizada.
 if (config.plataforma === 'android') setInterval(() => { try { db.exec('PRAGMA wal_checkpoint(PASSIVE)'); } catch { /* ocupada: la próxima */ } }, 2 * 60 * 1000).unref();
+
+app.locals.programador?.iniciar();
 
 let server; let port = config.port;
 if (config.instalado) {
@@ -56,6 +59,7 @@ if (lan) {
 }
 cerrar = () => {
   if (config.dataDir) fs.rmSync(path.join(config.dataDir, 'puerto.txt'), { force: true });
+  app.locals.programador?.detener();
   server.close(); db.close(); process.exit(0);
 };
 for (const s of ['SIGINT', 'SIGTERM']) process.on(s, cerrar);

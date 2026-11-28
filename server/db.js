@@ -1,6 +1,61 @@
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
+
+// Reloj de las marcas de sincronización. Los disparadores llaman a `ahora_sync()`, una función que cada conexión registra en
+// openDb. Las pruebas pueden reemplazar el reloj (`fijarReloj(() => milisegundos)`) para que los milisegundos sean controlados
+// (y los empates, frecuentes); `fijarReloj(null)` vuelve al reloj real.
+let reloj = null;
+export function fijarReloj(fn) { reloj = fn; }
+// Lo mismo con los uid: las pruebas pueden inyectar un generador con semilla (`fijarUuid(() => '...')`; null = aleatorio).
+let generadorUuid = null;
+export function fijarUuid(fn) { generadorUuid = fn; }
+const ahoraIso = () => new Date(reloj ? reloj() : Date.now()).toISOString();
+/** Registra en la conexión las funciones que usan los disparadores (migrar y openDb lo hacen solos). */
+export function registrarFunciones(db) {
+  // La marca de un cambio nuevo nunca es menor ni igual al último envío de este equipo (los reintentos de marca +1 ms de la
+  // sincronización pueden dejar el último envío "en el futuro" del reloj): si no, ese cambio no se subiría jamás.
+  let envio = null;
+  db.function('ahora_sync', { deterministic: true }, () => {
+    const ahora = ahoraIso();
+    let ultimo = null;
+    try { envio ??= db.prepare("SELECT valor FROM sync_estado WHERE clave = 'ultimo_envio'"); ultimo = envio.get()?.valor ?? null; } catch { envio = null; }
+    return ultimo && ahora <= ultimo ? new Date(Date.parse(ultimo) + 1).toISOString() : ahora;
+  });
+  db.function('uuid_sync', () => (generadorUuid ? generadorUuid() : randomUUID()));
+}
+
+// Ayudas para la migración 6 (identidades y marcas de cambio para sincronizar).
+const AHORA = '(SELECT ahora_sync())';
+// Marca de un cambio sobre una fila que ya la tiene: nunca menor ni igual a la anterior (+1 ms, aritmética exacta de
+// SQLite en milisegundos), así una edición local supera siempre a una versión con fecha adelantada y se sube y gana.
+const MONOTONO = `MAX(${AHORA}, COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', actualizado, '+0.001 seconds'), ''))`;
+// UUID v4 (la función `uuid_sync` se evalúa una vez por fila).
+const UUID_V4 = () => 'uuid_sync()';
+// Columnas de contenido de cada tabla sincronizada (todas menos `actualizado` y `uid`). El disparador de cambio
+// escucha solo estas: un UPDATE que únicamente escribe `actualizado` no lo dispara, así que fijar la marca a mano
+// siempre se respeta (aunque el valor sea igual al anterior). Si una migración futura agrega columnas, hay que sumarlas acá.
+const COLUMNAS = {
+  personas: 'nombre, color, avatar, creada',
+  rutinas: 'nombre, dias, descripcion, persona_id',
+  sesiones: 'rutina_id, fecha, duracion, nota, dia_id, estado, titulo, fin, persona_id, grupo',
+  medidas: 'persona_id, fecha, peso_kg, cintura, pecho, brazo, pierna, grasa_pct',
+  perfil: 'persona_id, altura, edad, sexo, actividad, objetivo, fecha_nacimiento',
+  favoritos: 'persona_id, ejercicio_id',
+};
+const TRIGGERS_DOCUMENTO = [['personas', 'persona'], ['rutinas', 'rutina'], ['sesiones', 'sesion']];
+const TRIGGERS_NATURALES = [
+  ['medidas', 'medida', (r) => `p.uid || '|' || ${r}.fecha`, (r) => `persona_id = ${r}.persona_id AND fecha = ${r}.fecha`],
+  ['perfil', 'perfil', () => 'p.uid', (r) => `persona_id = ${r}.persona_id`],
+  ['favoritos', 'favorito', (r) => `p.uid || '|' || ${r}.ejercicio_id`, (r) => `persona_id = ${r}.persona_id AND ejercicio_id = ${r}.ejercicio_id`],
+];
+const HIJOS = [
+  ['rutina_dias', 'rutinas', (r) => `${r}.rutina_id`],
+  ['rutina_ejercicios', 'rutinas', (r) => `(SELECT rutina_id FROM rutina_dias WHERE id = ${r}.dia_id)`],
+  ['sesion_ejercicios', 'sesiones', (r) => `${r}.sesion_id`],
+  ['series_hechas', 'sesiones', (r) => `${r}.sesion_id`],
+];
 
 // Migraciones en orden. Nunca se edita una ya publicada: se agrega una nueva al final.
 export const MIGRACIONES = [
@@ -225,6 +280,119 @@ export const MIGRACIONES = [
       UPDATE ajustes SET clave = 'plantillas_sembradas:1' WHERE clave = 'plantillas_sembradas';
     `,
   },
+  {
+    // Cuentas y sincronización: identidad estable (uid) y marca de cambio (actualizado) por documento,
+    // más el registro de borrados (lápidas) y el estado de la sincronización.
+    version: 6,
+    sql: `
+      ALTER TABLE personas ADD COLUMN uid TEXT;
+      ALTER TABLE personas ADD COLUMN actualizado TEXT;
+      ALTER TABLE rutinas ADD COLUMN uid TEXT;
+      ALTER TABLE rutinas ADD COLUMN actualizado TEXT;
+      ALTER TABLE sesiones ADD COLUMN uid TEXT;
+      ALTER TABLE sesiones ADD COLUMN actualizado TEXT;
+      ALTER TABLE medidas ADD COLUMN actualizado TEXT;
+      ALTER TABLE perfil ADD COLUMN actualizado TEXT;
+      ALTER TABLE favoritos ADD COLUMN actualizado TEXT;
+
+      -- UUID v4 a partir de 16 bytes al azar. La subconsulta depende de la fila para evaluarse una vez por fila.
+      UPDATE personas SET uid = ${UUID_V4('personas.id')}, actualizado = ${AHORA};
+      UPDATE rutinas SET uid = ${UUID_V4('rutinas.id')}, actualizado = ${AHORA};
+      UPDATE sesiones SET uid = ${UUID_V4('sesiones.id')}, actualizado = ${AHORA};
+      UPDATE medidas SET actualizado = ${AHORA};
+      UPDATE perfil SET actualizado = ${AHORA};
+      UPDATE favoritos SET actualizado = ${AHORA};
+
+      CREATE UNIQUE INDEX idx_personas_uid ON personas(uid);
+      CREATE UNIQUE INDEX idx_rutinas_uid ON rutinas(uid);
+      CREATE UNIQUE INDEX idx_sesiones_uid ON sesiones(uid);
+
+      CREATE TABLE sync_borrados (
+        tipo TEXT NOT NULL,
+        clave TEXT NOT NULL,
+        fecha TEXT NOT NULL,
+        -- 1 = lápida de la clave vieja de un documento que unificar movió a otra persona (no es un borrado del usuario)
+        por_alias INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (tipo, clave)
+      );
+      CREATE TABLE sync_estado (
+        clave TEXT PRIMARY KEY,
+        valor TEXT
+      );
+      -- Personas muertas (borradas aquí o en otro equipo) y desde cuándo; sobrevive a la lápida y sirve para
+      -- decidir si un documento hijo que llega sin su persona se descarta o espera a que la persona reviva.
+      -- viva = 1: la persona revivió sobre un borrado de esa fecha (lo anterior a ella está muerto); viaja en su documento.
+      CREATE TABLE sync_muertas (
+        persona TEXT PRIMARY KEY,
+        fecha TEXT NOT NULL,
+        viva INTEGER NOT NULL DEFAULT 0
+      );
+      -- Unificar personas es un alias, no un borrado: la persona de origen sigue viva en la nube con unificada_en y
+      -- todo lo suyo (también lo que llegue de equipos que aún no se enteraron) pasa a la conservada. datos guarda
+      -- nombre, color, avatar y creada de la persona de origen para reconstruir su documento.
+      CREATE TABLE sync_alias (
+        origen TEXT PRIMARY KEY,
+        destino TEXT NOT NULL,
+        actualizado TEXT NOT NULL,
+        datos TEXT NOT NULL
+      );
+
+      ${TRIGGERS_DOCUMENTO.map(([t, tipo]) => `
+      CREATE TRIGGER ${t}_uid AFTER INSERT ON ${t} WHEN NEW.uid IS NULL BEGIN
+        UPDATE ${t} SET uid = ${UUID_V4(`${t}.id`)} WHERE id = NEW.id;
+      END;
+      CREATE TRIGGER ${t}_alta AFTER INSERT ON ${t} WHEN NEW.actualizado IS NULL BEGIN
+        UPDATE ${t} SET actualizado = ${AHORA} WHERE id = NEW.id;
+      END;
+      CREATE TRIGGER ${t}_cambio AFTER UPDATE OF ${COLUMNAS[t]} ON ${t} WHEN NEW.actualizado IS OLD.actualizado BEGIN
+        UPDATE ${t} SET actualizado = ${MONOTONO} WHERE id = NEW.id;
+      END;
+      CREATE TRIGGER ${t}_recrea AFTER INSERT ON ${t} WHEN NEW.uid IS NOT NULL BEGIN
+        DELETE FROM sync_borrados WHERE tipo = '${tipo}' AND clave = NEW.uid;
+      END;
+      ${t === 'personas' ? `
+      -- Borrar una persona deja lápida de ella y de todo lo suyo con la misma fecha (una sola sentencia: mismo instante),
+      -- antes de que el borrado en cascada se lleve los hijos.
+      CREATE TRIGGER personas_baja BEFORE DELETE ON personas BEGIN
+        INSERT OR REPLACE INTO sync_borrados (tipo, clave, fecha)
+          SELECT k.tipo, k.clave, ${AHORA} FROM (
+            SELECT 'persona' AS tipo, OLD.uid AS clave
+            UNION ALL SELECT 'rutina', uid FROM rutinas WHERE persona_id = OLD.id
+            UNION ALL SELECT 'sesion', uid FROM sesiones WHERE persona_id = OLD.id
+            UNION ALL SELECT 'medida', OLD.uid || '|' || fecha FROM medidas WHERE persona_id = OLD.id
+            UNION ALL SELECT 'perfil', OLD.uid FROM perfil WHERE persona_id = OLD.id
+            UNION ALL SELECT 'favorito', OLD.uid || '|' || ejercicio_id FROM favoritos WHERE persona_id = OLD.id
+          ) k;
+        INSERT OR REPLACE INTO sync_muertas (persona, fecha)
+          SELECT clave, fecha FROM sync_borrados WHERE tipo = 'persona' AND clave = OLD.uid;
+      END;` : `
+      -- OR IGNORE: en un borrado en cascada la lápida ya la dejó la persona, con su fecha.
+      CREATE TRIGGER ${t}_baja AFTER DELETE ON ${t} BEGIN
+        INSERT OR IGNORE INTO sync_borrados (tipo, clave, fecha) VALUES ('${tipo}', OLD.uid, ${AHORA});
+      END;`}`).join('\n')}
+
+      ${TRIGGERS_NATURALES.map(([t, tipo, claveSql, where]) => `
+      CREATE TRIGGER ${t}_alta AFTER INSERT ON ${t} WHEN NEW.actualizado IS NULL BEGIN
+        UPDATE ${t} SET actualizado = ${AHORA} WHERE ${where('NEW')};
+      END;
+      CREATE TRIGGER ${t}_cambio AFTER UPDATE OF ${COLUMNAS[t]} ON ${t} WHEN NEW.actualizado IS OLD.actualizado BEGIN
+        UPDATE ${t} SET actualizado = ${MONOTONO} WHERE ${where('NEW')};
+      END;
+      CREATE TRIGGER ${t}_recrea AFTER INSERT ON ${t} BEGIN
+        DELETE FROM sync_borrados WHERE tipo = '${tipo}' AND clave = (SELECT ${claveSql('NEW')} FROM personas p WHERE p.id = NEW.persona_id);
+      END;
+      -- Si la persona ya no existe (borrado en cascada) no hay clave que registrar: su propia lápida cubre todo.
+      CREATE TRIGGER ${t}_baja AFTER DELETE ON ${t} BEGIN
+        INSERT OR IGNORE INTO sync_borrados (tipo, clave, fecha)
+          SELECT '${tipo}', ${claveSql('OLD')}, ${AHORA} FROM personas p WHERE p.id = OLD.persona_id;
+      END;`).join('\n')}
+
+      ${HIJOS.map(([t, padre, idPadre]) => ['INSERT', 'UPDATE', 'DELETE'].map(ev => `
+      CREATE TRIGGER ${t}_${ev.toLowerCase()}_marca AFTER ${ev} ON ${t} BEGIN
+        UPDATE ${padre} SET actualizado = ${MONOTONO} WHERE id = ${idPadre(ev === 'DELETE' ? 'OLD' : 'NEW')};
+      END;`).join('\n')).join('\n')}
+    `,
+  },
 ];
 
 export function versionActual(db) {
@@ -232,6 +400,7 @@ export function versionActual(db) {
 }
 
 export function migrar(db, migraciones = MIGRACIONES) {
+  registrarFunciones(db);
   db.exec('CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY, aplicada TEXT NOT NULL)');
   const actual = versionActual(db);
   for (const m of [...migraciones].sort((a, b) => a.version - b.version)) {

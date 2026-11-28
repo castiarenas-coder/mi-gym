@@ -9,6 +9,7 @@ const raizPorDefecto = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 //   MI_GYM_CATALOGO  carpeta con catalogo.json empaquetado (se carga en la base al arrancar)
 //   MI_GYM_PLATAFORMA  'android' en la app del celular (oculta lo que solo sirve en PC)
 //   MI_GYM_TOKEN     clave de esta corrida: sin ella (cookie) el servidor no contesta (Android: otras apps del celular no lo leen)
+//   MI_GYM_SUPABASE_URL / MI_GYM_SUPABASE_ANON_KEY  proyecto de la nube (clave pública); sin ambas, no hay cuenta
 //   MI_GYM_DB / MI_GYM_MEDIA / MI_GYM_BACKUPS / MI_GYM_PORT: ajustes puntuales, ganan sobre MI_GYM_DATA
 export function resolverConfig(env = process.env, raiz = raizPorDefecto) {
   const abs = v => (v ? path.resolve(v) : null);
@@ -28,6 +29,9 @@ export function resolverConfig(env = process.env, raiz = raizPorDefecto) {
     logFile: enDatos('server.log', path.join(raiz, 'data', 'server.log')),
     catalogoDir: abs(env.MI_GYM_CATALOGO),
     clientDir: path.join(raiz, 'client', 'dist'),
+    // Cuenta en la nube: sin las dos variables queda deshabilitada (null).
+    supabase: env.MI_GYM_SUPABASE_URL && env.MI_GYM_SUPABASE_ANON_KEY
+      ? { url: env.MI_GYM_SUPABASE_URL, anonKey: env.MI_GYM_SUPABASE_ANON_KEY } : null,
   };
 }
 

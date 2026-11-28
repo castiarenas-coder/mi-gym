@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { openDb } from '../server/db.js';
 import { backupDb, listarBackups, restoreDb } from '../server/backup.js';
 
@@ -40,4 +41,37 @@ test('restoreDb rechaza un archivo que no es un respaldo', () => {
   const dir = tmp();
   fs.writeFileSync(path.join(dir, 'x.db'), 'basura');
   assert.throws(() => restoreDb(path.join(dir, 'x.db'), path.join(dir, 'a.db'), path.join(dir, 'b')));
+});
+
+test('backupDb nunca pisa un respaldo del mismo minuto y la rotación conserva los más nuevos', () => {
+  const dir = tmp();
+  const db = openDb(path.join(dir, 'a.db'));
+  const destino = path.join(dir, 'b');
+  const ahora = new Date(Date.UTC(2026, 0, 1, 10, 0, 5));
+  const a = backupDb(db, destino, { now: ahora });
+  db.prepare("INSERT INTO medidas (persona_id, fecha, peso_kg) VALUES (1, '2026-01-01', 80)").run();
+  const b = backupDb(db, destino, { now: ahora });
+  assert.notEqual(a, b);
+  const lista = listarBackups(destino);
+  assert.equal(lista.length, 2);
+  assert.ok(lista.every(f => /^mi_gym-.*.db$/.test(f)));
+  const primero = openDb(a);
+  assert.equal(primero.prepare('SELECT COUNT(*) n FROM medidas').get().n, 0);
+  primero.close();
+  const c = backupDb(db, destino, { now: ahora, keep: 2 });
+  assert.equal(listarBackups(destino).length, 2);
+  assert.ok(fs.existsSync(c) && fs.existsSync(b) && !fs.existsSync(a));
+  db.close();
+});
+
+test('backupDb no copia la sesion de la cuenta', () => {
+  const db = openDb(':memory:');
+  db.prepare("INSERT INTO sync_estado (clave, valor) VALUES ('sesion', 'cifrado'), ('cursor', 'c1')").run();
+  const archivo = backupDb(db, tmp());
+  const copia = new DatabaseSync(archivo);
+  try {
+    assert.equal(copia.prepare("SELECT COUNT(*) n FROM sync_estado WHERE clave = 'sesion'").get().n, 0);
+    assert.equal(copia.prepare("SELECT valor FROM sync_estado WHERE clave = 'cursor'").get().valor, 'c1');
+  } finally { copia.close(); }
+  assert.equal(db.prepare("SELECT COUNT(*) n FROM sync_estado WHERE clave = 'sesion'").get().n, 1);
 });

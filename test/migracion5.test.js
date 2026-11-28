@@ -16,7 +16,7 @@ test('la migración 5 asigna todo lo existente a la persona "Yo"', () => {
     INSERT INTO perfil (id, altura, sexo, objetivo) VALUES (1, 175, 'hombre', 'ganar_musculo');
     INSERT INTO ajustes (clave, valor) VALUES ('plantillas_sembradas', 'x'), ('descanso', '90');
   `);
-  migrar(db);
+  migrar(db, MIGRACIONES.filter(m => m.version <= 5));
   assert.equal(versionActual(db), 5);
   const personas = db.prepare('SELECT id, nombre FROM personas').all();
   assert.deepEqual(personas.map(p => [p.id, p.nombre]), [[1, 'Yo']]);
