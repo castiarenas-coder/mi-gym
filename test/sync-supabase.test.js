@@ -385,9 +385,9 @@ test('por defecto cada fetch lleva un signal de timeout aun no vencido', async (
   assert.equal(llamadas[0].signal.aborted, false);
 });
 
-test('config: Supabase solo con url y clave anonima; sin ellas la cuenta queda deshabilitada', () => {
-  assert.equal(resolverConfig({}).supabase, null);
-  assert.equal(resolverConfig({ MI_GYM_SUPABASE_URL: 'https://x.supabase.co' }).supabase, null);
+test('config: otro proyecto solo con url y clave anonima juntas; MI_GYM_SUPABASE=no la deshabilita', () => {
+  assert.equal(resolverConfig({ MI_GYM_SUPABASE: 'no' }).supabase, null);
+  assert.equal(resolverConfig({ MI_GYM_SUPABASE_URL: 'https://x.supabase.co' }).supabase.url, 'https://zkxxncianhcfrgxwrvol.supabase.co');
   assert.deepEqual(resolverConfig({ MI_GYM_SUPABASE_URL: 'https://x.supabase.co', MI_GYM_SUPABASE_ANON_KEY: 'k' }).supabase,
     { url: 'https://x.supabase.co', anonKey: 'k' });
 });

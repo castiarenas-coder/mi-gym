@@ -1,6 +1,10 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// Proyecto de Supabase de Rumbo Fit. La clave publicable está pensada para ir en la app (la seguridad la dan
+// las reglas por fila del repo privado rumbo-fit-nube).
+const NUBE = { url: 'https://zkxxncianhcfrgxwrvol.supabase.co', anonKey: 'sb_publishable_XIQeqwsUD17A9kIeWG68RA_D4EpR8WJ' };
+
 const raizPorDefecto = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 // Resuelve rutas y puertos a partir de variables de entorno. Sin ninguna, todo vive en el repo (desarrollo).
@@ -9,7 +13,8 @@ const raizPorDefecto = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 //   MI_GYM_CATALOGO  carpeta con catalogo.json empaquetado (se carga en la base al arrancar)
 //   MI_GYM_PLATAFORMA  'android' en la app del celular (oculta lo que solo sirve en PC)
 //   MI_GYM_TOKEN     clave de esta corrida: sin ella (cookie) el servidor no contesta (Android: otras apps del celular no lo leen)
-//   MI_GYM_SUPABASE_URL / MI_GYM_SUPABASE_ANON_KEY  proyecto de la nube (clave pública); sin ambas, no hay cuenta
+//   MI_GYM_SUPABASE_URL / MI_GYM_SUPABASE_ANON_KEY  otro proyecto de la nube (clave pública); por defecto, el de Rumbo Fit
+//   MI_GYM_SUPABASE=no  apaga la cuenta en la nube
 //   MI_GYM_DB / MI_GYM_MEDIA / MI_GYM_BACKUPS / MI_GYM_PORT: ajustes puntuales, ganan sobre MI_GYM_DATA
 export function resolverConfig(env = process.env, raiz = raizPorDefecto) {
   const abs = v => (v ? path.resolve(v) : null);
@@ -29,9 +34,10 @@ export function resolverConfig(env = process.env, raiz = raizPorDefecto) {
     logFile: enDatos('server.log', path.join(raiz, 'data', 'server.log')),
     catalogoDir: abs(env.MI_GYM_CATALOGO),
     clientDir: path.join(raiz, 'client', 'dist'),
-    // Cuenta en la nube: sin las dos variables queda deshabilitada (null).
-    supabase: env.MI_GYM_SUPABASE_URL && env.MI_GYM_SUPABASE_ANON_KEY
-      ? { url: env.MI_GYM_SUPABASE_URL, anonKey: env.MI_GYM_SUPABASE_ANON_KEY } : null,
+    // Cuenta en la nube: el proyecto de Rumbo Fit salvo que las variables indiquen otro o la apaguen (null).
+    supabase: env.MI_GYM_SUPABASE === 'no' ? null
+      : env.MI_GYM_SUPABASE_URL && env.MI_GYM_SUPABASE_ANON_KEY
+        ? { url: env.MI_GYM_SUPABASE_URL, anonKey: env.MI_GYM_SUPABASE_ANON_KEY } : NUBE,
   };
 }
 

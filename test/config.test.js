@@ -42,3 +42,20 @@ test('MI_GYM_PLATAFORMA=android marca la app del celular; sin ella es de escrito
   assert.equal(resolverConfig({ MI_GYM_PLATAFORMA: 'android' }, raiz).plataforma, 'android');
   assert.equal(resolverConfig({ MI_GYM_PLATAFORMA: 'otra' }, raiz).plataforma, 'escritorio');
 });
+
+test('la cuenta usa el proyecto de Rumbo Fit por defecto', () => {
+  const c = resolverConfig({}, raiz);
+  assert.deepEqual(c.supabase, {
+    url: 'https://zkxxncianhcfrgxwrvol.supabase.co',
+    anonKey: 'sb_publishable_XIQeqwsUD17A9kIeWG68RA_D4EpR8WJ',
+  });
+});
+
+test('las variables de entorno reemplazan el proyecto de la nube', () => {
+  const c = resolverConfig({ MI_GYM_SUPABASE_URL: 'https://otro.supabase.co', MI_GYM_SUPABASE_ANON_KEY: 'K' }, raiz);
+  assert.deepEqual(c.supabase, { url: 'https://otro.supabase.co', anonKey: 'K' });
+});
+
+test('MI_GYM_SUPABASE=no apaga la cuenta', () => {
+  assert.equal(resolverConfig({ MI_GYM_SUPABASE: 'no' }, raiz).supabase, null);
+});
