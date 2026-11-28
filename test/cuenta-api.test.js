@@ -461,3 +461,55 @@ test('generación: vincular con generación distinta a la guardada también re-s
   assert.ok(c.r.documentos().length > 0);
   assert.equal(estadoSync(s, 'generacion'), '2');
 });
+
+// --- Acceso desde otro equipo de la red (modo LAN) ---------------------------------------------------------------
+async function conPar(direccion, { conAcceso = false, info = PRO } = {}) {
+  const { default: express } = await import('express');
+  const { openDb } = await import('../server/db.js');
+  const { crearCuenta } = await import('../server/routes/cuenta.js');
+  const db = openDb(':memory:');
+  const c = clienteFalso(info);
+  const { router } = crearCuenta({ db, supabase: SUPA, cliente: c, timers: sinTimers, conAcceso });
+  const app = express();
+  app.use(express.json());
+  app.use((req, _res, next) => { Object.defineProperty(req.socket, 'remoteAddress', { value: direccion, configurable: true }); next(); });
+  app.use('/api/cuenta', router);
+  const server = await new Promise(r => { const s = app.listen(0, '127.0.0.1', () => r(s)); });
+  abiertos.push(() => { server.close(); db.close(); });
+  const pedir = async (ruta, method = 'GET', body) => {
+    const res = await fetch(`http://127.0.0.1:${server.address().port}${ruta}`, { method, headers: { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+    return { status: res.status, json: await res.json().catch(() => null) };
+  };
+  return { c, pedir };
+}
+
+test('un equipo de la red no puede cambiar la cuenta (403 solo_este_equipo) ni ve el mail', async () => {
+  const p = await conPar('192.168.1.40');
+  for (const [m, ruta] of [['DELETE', '/api/cuenta'], ['POST', '/api/cuenta/salir'], ['POST', '/api/cuenta/codigo'], ['POST', '/api/cuenta/verificar'],
+    ['POST', '/api/cuenta/vincular'], ['POST', '/api/cuenta/unificar'], ['POST', '/api/cuenta/consentimiento'], ['POST', '/api/cuenta/sincronizar']]) {
+    const r = await p.pedir(ruta, m, {});
+    assert.equal(r.status, 403, `${m} ${ruta}`);
+    assert.equal(r.json.codigo, 'solo_este_equipo');
+    assert.match(r.json.error, /este equipo|esta PC/i);
+  }
+  assert.equal(p.c.borrada, false);
+  assert.notEqual(p.c.info, null);
+  const g = await p.pedir('/api/cuenta');
+  assert.equal(g.status, 200);
+  assert.equal(g.json.sesion.plan, 'pro');
+  assert.equal('email' in g.json.sesion, false);
+});
+
+test('desde la propia PC o con la clave de acceso (app del celular) todo sigue funcionando', async () => {
+  for (const p of [await conPar('127.0.0.1'), await conPar('::ffff:127.0.0.1'), await conPar('192.168.1.40', { conAcceso: true })]) {
+    assert.equal((await p.pedir('/api/cuenta')).json.sesion.email, 'Ana@Correo.com');
+    assert.equal((await p.pedir('/api/cuenta/salir', 'POST', {})).status, 200);
+  }
+});
+
+test('con MI_GYM_TOKEN la app deja pasar a quien trae la cookie y la cuenta sigue siendo usable', async () => {
+  const s = await servidor({ cliente: clienteFalso(PRO), token: 'clave', plataforma: 'android' });
+  const h = { cookie: 'mi_gym_token=clave' };
+  assert.equal((await s.pedir('/api/cuenta', { headers: h })).json.sesion.email, 'Ana@Correo.com');
+  assert.equal((await s.pedir('/api/cuenta/salir', { method: 'POST', headers: h })).status, 200);
+});

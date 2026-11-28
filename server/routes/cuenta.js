@@ -18,6 +18,7 @@ import { sincronizar, leer, guardar, reiniciarBajada, enTransaccion } from '../s
 import { estadoVinculo, vincular, personasDuplicadas, unificarPersonas } from '../sync/vincular.js';
 import { crearProgramador } from '../sync/programador.js';
 import { ErrorCuenta, traducir } from '../sync/errores.js';
+import { esLoopback } from '../puerto.js';
 
 const MAX_VERIFICADOR_MS = 10 * 60 * 1000;
 const MODOS = ['subir', 'bajar', 'juntar', 'reemplazar'];
@@ -29,10 +30,13 @@ const pagina = (titulo, mensaje) => `<!doctype html><html lang="es"><head><meta 
 const emailValido = e => typeof e === 'string' && e.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
 /**
+ * `conAcceso`: el servidor exige la clave de acceso (MI_GYM_TOKEN) a todo pedido, así que quien llega ya la presentó
+ * (la app del celular). Sin clave, en modo LAN, un equipo de la red no puede cambiar la cuenta ni ver el mail.
+ *
  * Crea la cuenta: cliente de Supabase (o el inyectado en pruebas), programador de la sincronización y el router.
  * Devuelve `{ router, programador }`. `programador.iniciar()` lo llama quien arranca el servidor.
  */
-export function crearCuenta({ db, supabase, fetchFn = fetch, cliente = null, rutaClave, backupsDir = null, ahora = () => new Date(), timers, intervaloMs, google = true }) {
+export function crearCuenta({ db, supabase, fetchFn = fetch, cliente = null, rutaClave, backupsDir = null, ahora = () => new Date(), timers, intervaloMs, google = true, conAcceso = false }) {
   cliente ??= crearClienteSupabase({ url: supabase.url, anonKey: supabase.anonKey, fetchFn, ...sesionEnDb(db, rutaClave) });
   let ultimaCuenta = null; // lo último que dijo la nube: se muestra si se cae la conexión
   let verificador = null;
@@ -88,6 +92,12 @@ export function crearCuenta({ db, supabase, fetchFn = fetch, cliente = null, rut
   });
 
   const router = Router();
+  const esDeConfianza = req => conAcceso || esLoopback(req.socket.remoteAddress);
+  // Cambiar la cuenta (salir, borrar, vincular, sincronizar...) solo desde este equipo o con la clave de acceso.
+  router.use((req, res, next) => {
+    if (req.method === 'GET' || req.method === 'HEAD' || esDeConfianza(req)) return next();
+    res.status(403).json({ error: 'Solo se puede cambiar la cuenta desde este equipo.', codigo: 'solo_este_equipo' });
+  });
   const fallar = (res, e) => {
     const t = traducir(e);
     if (t.codigo === 'interno') console.error('[cuenta]', e?.name ?? 'Error');
@@ -96,11 +106,12 @@ export function crearCuenta({ db, supabase, fetchFn = fetch, cliente = null, rut
   const ruta = fn => async (req, res) => { try { await fn(req, res); } catch (e) { fallar(res, e); } };
   const invalido = (res, mensaje) => res.status(400).json({ error: mensaje, codigo: 'datos_invalidos' });
 
-  router.get('/', async (_req, res) => {
+  router.get('/', async (req, res) => {
+    const visible = ({ email, ...resto }) => (esDeConfianza(req) ? { email, ...resto } : resto);
     const base = { habilitada: true, google, sesion: null, vinculado: false, ultimaSincronizacion: leer(db, 'ultima_sync'), error: programador.estado().error };
     try {
       const c = await leerCuenta();
-      return res.json({ ...base, sesion: { email: c.email, plan: c.plan, consentimiento: Boolean(c.consentimiento_en) }, vinculado: vinculadaA(c) });
+      return res.json({ ...base, sesion: visible({ email: c.email, plan: c.plan, consentimiento: Boolean(c.consentimiento_en) }), vinculado: vinculadaA(c) });
     } catch (e) {
       if (e instanceof ErrorSupabase && e.codigo === 'sin_sesion') { ultimaCuenta = null; return res.json(base); }
       if (e instanceof ErrorSupabase && e.codigo === 'sesion_vencida') { ultimaCuenta = null; return res.json({ ...base, error: traducir(e).mensaje }); }
@@ -111,7 +122,7 @@ export function crearCuenta({ db, supabase, fetchFn = fetch, cliente = null, rut
           const conocido = ultimaCuenta !== null;
           return res.json({
             ...base, error: traducir(e).mensaje,
-            sesion: { email: c.email, plan: conocido ? c.plan : null, consentimiento: conocido ? Boolean(c.consentimiento_en) : null },
+            sesion: visible({ email: c.email, plan: conocido ? c.plan : null, consentimiento: conocido ? Boolean(c.consentimiento_en) : null }),
             vinculado: vinculadaA(c),
           });
         }

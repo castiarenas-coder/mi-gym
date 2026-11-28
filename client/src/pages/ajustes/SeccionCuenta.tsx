@@ -102,7 +102,7 @@ function ConSesion({ estado, sesion }: { estado: EstadoCuenta; sesion: NonNullab
   const listo = pro && sesion.consentimiento === true
   return (
     <>
-      <p className="bloque__ayuda">Sesión iniciada como <strong>{sesion.email}</strong></p>
+      <p className="bloque__ayuda">{sesion.email ? <>Sesión iniciada como <strong>{sesion.email}</strong></> : 'Sesión iniciada en la cuenta de la PC.'}</p>
       {estado.error && <p className="aviso aviso--error" role="alert">{estado.error}</p>}
       {sesion.plan === 'gratis' && <p className="aviso">Sincronización disponible con el plan Pro</p>}
       {pro && sesion.consentimiento === false && <Consentimiento onError={alFallar} />}

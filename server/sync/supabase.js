@@ -12,7 +12,7 @@ import crypto from 'node:crypto';
 //   demasiados_intentos  429
 //   servidor           5xx
 //   respuesta          cualquier otro estado inesperado
-// `.estado` trae el HTTP cuando hubo respuesta. Cada fetch tiene timeout (30 s por defecto): un corte o
+// `.estado` trae el HTTP cuando hubo respuesta. Cada fetch tiene timeout (30 s por defecto; 8 s para leer la cuenta, que gobierna GET /api/cuenta): un corte o
 // timeout también es `sin_red`.
 //
 // Contrato con la nube (Task 8):
@@ -53,15 +53,15 @@ function errorDeEstado(estado, cuerpo, porDefecto) {
   return new ErrorSupabase(porDefecto ?? 'respuesta', String(detalle), { estado });
 }
 
-export function crearClienteSupabase({ url, anonKey, fetchFn = fetch, guardarSesion, leerSesion, timeoutMs = 30_000, pagina = PAGINA }) {
+export function crearClienteSupabase({ url, anonKey, fetchFn = fetch, guardarSesion, leerSesion, timeoutMs = 30_000, timeoutCuentaMs = 8_000, pagina = PAGINA }) {
   const raiz = String(url).replace(/\/+$/, '');
   let renovando = null;
 
-  async function pedir(ruta, { metodo = 'POST', cuerpo, token, headers = {} } = {}) {
+  async function pedir(ruta, { metodo = 'POST', cuerpo, token, headers = {}, timeout = timeoutMs } = {}) {
     const h = { apikey: anonKey, 'Content-Type': 'application/json', ...headers };
     if (token) h.Authorization = `Bearer ${token}`;
     const control = new AbortController();
-    const reloj = setTimeout(() => control.abort(new Error(`Sin respuesta de la nube en ${timeoutMs} ms`)), timeoutMs);
+    const reloj = setTimeout(() => control.abort(new Error(`Sin respuesta de la nube en ${timeout} ms`)), timeout);
     try {
       return await fetchFn(`${raiz}${ruta}`, { method: metodo, headers: h, body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo), signal: control.signal });
     } catch (e) {
@@ -167,7 +167,7 @@ export function crearClienteSupabase({ url, anonKey, fetchFn = fetch, guardarSes
     async cuenta() {
       const s = await leerSesion();
       if (!s?.access_token) throw new ErrorSupabase('sin_sesion', 'No hay sesión iniciada');
-      const r = await autenticada(`/rest/v1/cuentas?select=${encodeURIComponent('plan,consentimiento_en,generacion')}`, { metodo: 'GET' });
+      const r = await autenticada(`/rest/v1/cuentas?select=${encodeURIComponent('plan,consentimiento_en,generacion')}`, { metodo: 'GET', timeout: timeoutCuentaMs });
       const filas = await exigir(r);
       const fila = Array.isArray(filas) ? filas[0] : null;
       const actual = await leerSesion();

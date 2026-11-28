@@ -367,6 +367,17 @@ test('timeout: cada fetch lleva signal y un abort o timeout es sin_red', async (
   assert.ok(llamadas[0].signal instanceof AbortSignal);
 });
 
+test('cuenta() usa un timeout corto propio; subir/bajar siguen con el general', async () => {
+  const colgada = (url, init) => new Promise((_, rechazar) => { init.signal.addEventListener('abort', () => rechazar(init.signal.reason)); });
+  const { cliente } = crear({ timeoutMs: 400, timeoutCuentaMs: 20, rutas: colgada });
+  let t0 = Date.now();
+  await assert.rejects(cliente.cuenta(), e => e.codigo === 'sin_red');
+  assert.ok(Date.now() - t0 < 300, 'cuenta() corta con su propio timeout');
+  t0 = Date.now();
+  await assert.rejects(cliente.remoto().bajar(null), e => e.codigo === 'sin_red');
+  assert.ok(Date.now() - t0 >= 300, 'bajar() espera el timeout general');
+});
+
 test('por defecto cada fetch lleva un signal de timeout aun no vencido', async () => {
   const { cliente, llamadas } = crear({ rutas: () => resp(200, []) });
   await cliente.remoto().bajar(null);

@@ -130,7 +130,7 @@ describe('SeccionCuenta', () => {
   it('juntar ofrece unificar las duplicadas que salen DESPUÉS de juntar', async () => {
     let juntado = false
     const { llamadas } = montar({ sesion: PRO }, (_m, u) => {
-      if (u.pathname === '/api/cuenta/vinculo') return { estado: 'ambos_con_datos', vinculado: juntado, duplicadas: juntado ? [{ conservar: 'a', duplicada: 'b', nombre: 'Press banca' }] : [] }
+      if (u.pathname === '/api/cuenta/vinculo') return { estado: 'ambos_con_datos', vinculado: juntado, duplicadas: juntado ? [{ conservar: 1, duplicada: 2, nombre: 'Press banca' }] : [] }
       if (u.pathname === '/api/cuenta/vincular') { juntado = true; return { ok: true, ultimaSincronizacion: null } }
       if (u.pathname === '/api/cuenta/unificar') return { ok: true }
     })
@@ -138,7 +138,7 @@ describe('SeccionCuenta', () => {
     expect(await screen.findByText(/Press banca/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Dejar así Press banca' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Unificar Press banca' }))
-    await waitFor(() => expect(llamadas.find(l => l.ruta === '/api/cuenta/unificar')?.body).toEqual({ conservar: 'a', duplicada: 'b' }))
+    await waitFor(() => expect(llamadas.find(l => l.ruta === '/api/cuenta/unificar')?.body).toEqual({ conservar: 1, duplicada: 2 }))
   })
 
   it('sesión vencida: sin sesión pero con error, lo muestra como alerta', async () => {

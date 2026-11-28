@@ -3,7 +3,8 @@ import { api, enviar } from './cliente'
 import { renovarTodo } from './personas'
 
 export interface SesionCuenta {
-  email: string
+  /** Ausente cuando se mira desde otro equipo de la red. */
+  email?: string
   /** null = sin conexión después de reiniciar: no se sabe todavía (no es "gratis"). */
   plan: 'gratis' | 'pro' | null
   /** null = no se pudo consultar. */
@@ -21,7 +22,7 @@ export interface EstadoCuenta {
 
 export type ModoVinculo = 'subir' | 'bajar' | 'juntar' | 'reemplazar'
 
-export interface Duplicada { conservar: string; duplicada: string; nombre: string }
+export interface Duplicada { conservar: number; duplicada: number; nombre: string }
 
 export interface Vinculo {
   estado: 'cuenta_vacia' | 'equipo_vacio' | 'ambos_con_datos'
@@ -81,7 +82,7 @@ export const useVincular = () => useMutacionCuenta(
   },
   { datos: true },
 )
-export const useUnificar = () => useMutacionCuenta((v: { conservar: string; duplicada: string }) => enviar<{ ok: true }>('POST', '/cuenta/unificar', v), { datos: true })
+export const useUnificar = () => useMutacionCuenta((v: { conservar: number; duplicada: number }) => enviar<{ ok: true }>('POST', '/cuenta/unificar', v), { datos: true })
 export const useSincronizar = () => useMutacionCuenta(() => enviar<ResultadoSync>('POST', '/cuenta/sincronizar', {}), { datos: true })
 export const useSalir = () => useMutacionCuenta(() => enviar<{ ok: true }>('POST', '/cuenta/salir', {}))
 export const useBorrarCuenta = () => useMutacionCuenta(() => enviar<{ ok: true }>('DELETE', '/cuenta'))
