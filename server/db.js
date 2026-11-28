@@ -2,6 +2,25 @@ import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
 
+// Ayudas para la migración 6 (identidades y marcas de cambio para sincronizar).
+const AHORA = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
+// UUID v4 con 16 bytes al azar; `fila` se nombra para que SQLite lo evalúe una vez por fila.
+const UUID_V4 = (fila) => `(WITH h(x) AS (SELECT lower(hex(randomblob(16))) WHERE ${fila} IS NOT NULL)
+        SELECT substr(x, 1, 8) || '-' || substr(x, 9, 4) || '-4' || substr(x, 14, 3) || '-'
+          || substr('89ab', 1 + abs(random()) % 4, 1) || substr(x, 18, 3) || '-' || substr(x, 21, 12) FROM h)`;
+const TRIGGERS_DOCUMENTO = [['personas', 'persona'], ['rutinas', 'rutina'], ['sesiones', 'sesion']];
+const TRIGGERS_NATURALES = [
+  ['medidas', 'medida', (r) => `p.uid || '|' || ${r}.fecha`, (r) => `persona_id = ${r}.persona_id AND fecha = ${r}.fecha`],
+  ['perfil', 'perfil', () => 'p.uid', (r) => `persona_id = ${r}.persona_id`],
+  ['favoritos', 'favorito', (r) => `p.uid || '|' || ${r}.ejercicio_id`, (r) => `persona_id = ${r}.persona_id AND ejercicio_id = ${r}.ejercicio_id`],
+];
+const HIJOS = [
+  ['rutina_dias', 'rutinas', (r) => `${r}.rutina_id`],
+  ['rutina_ejercicios', 'rutinas', (r) => `(SELECT rutina_id FROM rutina_dias WHERE id = ${r}.dia_id)`],
+  ['sesion_ejercicios', 'sesiones', (r) => `${r}.sesion_id`],
+  ['series_hechas', 'sesiones', (r) => `${r}.sesion_id`],
+];
+
 // Migraciones en orden. Nunca se edita una ya publicada: se agrega una nueva al final.
 export const MIGRACIONES = [
   {
@@ -223,6 +242,83 @@ export const MIGRACIONES = [
       INSERT INTO favoritos (persona_id, ejercicio_id) SELECT 1, id FROM ejercicios WHERE favorito != 0;
 
       UPDATE ajustes SET clave = 'plantillas_sembradas:1' WHERE clave = 'plantillas_sembradas';
+    `,
+  },
+  {
+    // Cuentas y sincronización: identidad estable (uid) y marca de cambio (actualizado) por documento,
+    // más el registro de borrados (lápidas) y el estado de la sincronización.
+    version: 6,
+    sql: `
+      ALTER TABLE personas ADD COLUMN uid TEXT;
+      ALTER TABLE personas ADD COLUMN actualizado TEXT;
+      ALTER TABLE rutinas ADD COLUMN uid TEXT;
+      ALTER TABLE rutinas ADD COLUMN actualizado TEXT;
+      ALTER TABLE sesiones ADD COLUMN uid TEXT;
+      ALTER TABLE sesiones ADD COLUMN actualizado TEXT;
+      ALTER TABLE medidas ADD COLUMN actualizado TEXT;
+      ALTER TABLE perfil ADD COLUMN actualizado TEXT;
+      ALTER TABLE favoritos ADD COLUMN actualizado TEXT;
+
+      -- UUID v4 a partir de 16 bytes al azar. La subconsulta depende de la fila para evaluarse una vez por fila.
+      UPDATE personas SET uid = ${UUID_V4('personas.id')}, actualizado = ${AHORA};
+      UPDATE rutinas SET uid = ${UUID_V4('rutinas.id')}, actualizado = ${AHORA};
+      UPDATE sesiones SET uid = ${UUID_V4('sesiones.id')}, actualizado = ${AHORA};
+      UPDATE medidas SET actualizado = ${AHORA};
+      UPDATE perfil SET actualizado = ${AHORA};
+      UPDATE favoritos SET actualizado = ${AHORA};
+
+      CREATE UNIQUE INDEX idx_personas_uid ON personas(uid);
+      CREATE UNIQUE INDEX idx_rutinas_uid ON rutinas(uid);
+      CREATE UNIQUE INDEX idx_sesiones_uid ON sesiones(uid);
+
+      CREATE TABLE sync_borrados (
+        tipo TEXT NOT NULL,
+        clave TEXT NOT NULL,
+        fecha TEXT NOT NULL,
+        PRIMARY KEY (tipo, clave)
+      );
+      CREATE TABLE sync_estado (
+        clave TEXT PRIMARY KEY,
+        valor TEXT
+      );
+
+      ${TRIGGERS_DOCUMENTO.map(([t, tipo]) => `
+      CREATE TRIGGER ${t}_uid AFTER INSERT ON ${t} WHEN NEW.uid IS NULL BEGIN
+        UPDATE ${t} SET uid = ${UUID_V4(`${t}.id`)} WHERE id = NEW.id;
+      END;
+      CREATE TRIGGER ${t}_alta AFTER INSERT ON ${t} WHEN NEW.actualizado IS NULL BEGIN
+        UPDATE ${t} SET actualizado = ${AHORA} WHERE id = NEW.id;
+      END;
+      CREATE TRIGGER ${t}_cambio AFTER UPDATE ON ${t} WHEN NEW.actualizado IS OLD.actualizado BEGIN
+        UPDATE ${t} SET actualizado = ${AHORA} WHERE id = NEW.id;
+      END;
+      CREATE TRIGGER ${t}_recrea AFTER INSERT ON ${t} WHEN NEW.uid IS NOT NULL BEGIN
+        DELETE FROM sync_borrados WHERE tipo = '${tipo}' AND clave = NEW.uid;
+      END;
+      CREATE TRIGGER ${t}_baja AFTER DELETE ON ${t} BEGIN
+        INSERT OR REPLACE INTO sync_borrados (tipo, clave, fecha) VALUES ('${tipo}', OLD.uid, ${AHORA});
+      END;`).join('\n')}
+
+      ${TRIGGERS_NATURALES.map(([t, tipo, claveSql, where]) => `
+      CREATE TRIGGER ${t}_alta AFTER INSERT ON ${t} WHEN NEW.actualizado IS NULL BEGIN
+        UPDATE ${t} SET actualizado = ${AHORA} WHERE ${where('NEW')};
+      END;
+      CREATE TRIGGER ${t}_cambio AFTER UPDATE ON ${t} WHEN NEW.actualizado IS OLD.actualizado BEGIN
+        UPDATE ${t} SET actualizado = ${AHORA} WHERE ${where('NEW')};
+      END;
+      CREATE TRIGGER ${t}_recrea AFTER INSERT ON ${t} BEGIN
+        DELETE FROM sync_borrados WHERE tipo = '${tipo}' AND clave = (SELECT ${claveSql('NEW')} FROM personas p WHERE p.id = NEW.persona_id);
+      END;
+      -- Si la persona ya no existe (borrado en cascada) no hay clave que registrar: su propia lápida cubre todo.
+      CREATE TRIGGER ${t}_baja AFTER DELETE ON ${t} BEGIN
+        INSERT OR REPLACE INTO sync_borrados (tipo, clave, fecha)
+          SELECT '${tipo}', ${claveSql('OLD')}, ${AHORA} FROM personas p WHERE p.id = OLD.persona_id;
+      END;`).join('\n')}
+
+      ${HIJOS.map(([t, padre, idPadre]) => ['INSERT', 'UPDATE', 'DELETE'].map(ev => `
+      CREATE TRIGGER ${t}_${ev.toLowerCase()}_marca AFTER ${ev} ON ${t} BEGIN
+        UPDATE ${padre} SET actualizado = ${AHORA} WHERE id = ${idPadre(ev === 'DELETE' ? 'OLD' : 'NEW')};
+      END;`).join('\n')).join('\n')}
     `,
   },
 ];

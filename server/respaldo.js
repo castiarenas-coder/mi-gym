@@ -64,6 +64,11 @@ export function importarDatos(db, datos, { backupsDir } = {}) {
           .run(...cols.map(c => (typeof fila[c] === 'boolean' ? Number(fila[c]) : fila[c] ?? null)));
       }
     }
+    // Insertar hijos mueve la marca del documento padre: se devuelve la que traía el archivo.
+    for (const t of ['rutinas', 'sesiones']) {
+      const fijar = db.prepare(`UPDATE ${t} SET actualizado = ? WHERE id = ?`);
+      for (const f of datos[t]) if (f.actualizado) fijar.run(f.actualizado, f.id);
+    }
     const marcar = db.prepare('UPDATE ejercicios SET media_propia = ? WHERE id = ?');
     for (const e of datos.ejercicios) marcar.run(e.media_propia ?? null, String(e.id));
     if (db.prepare('PRAGMA foreign_key_check').all().length) throw new ErrorRespaldo('El archivo tiene referencias a personas, ejercicios o rutinas que no existen.');
