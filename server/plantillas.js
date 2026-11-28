@@ -79,3 +79,13 @@ function sembrarPara(db, plantillas, personaId) {
   }
   return plantillas.length;
 }
+
+// ¿La rutina es una plantilla de ejemplo que nadie tocó ni usó? (mismo nombre, descripción y nombres de días, sin sesiones).
+// Sirve para no arrastrar copias de las plantillas cuando se juntan datos de equipos distintos.
+export function esPlantillaSinTocar(db, rutina) {
+  const p = PLANTILLAS.find(x => x.nombre === rutina.nombre && x.descripcion === rutina.descripcion);
+  if (!p) return false;
+  if (db.prepare('SELECT 1 FROM sesiones WHERE rutina_id = ? LIMIT 1').get(rutina.id)) return false;
+  const dias = db.prepare('SELECT nombre FROM rutina_dias WHERE rutina_id = ? ORDER BY orden, id').all(rutina.id).map(d => d.nombre);
+  return dias.length === p.dias.length && dias.every((nombre, i) => nombre === p.dias[i].nombre);
+}

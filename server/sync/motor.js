@@ -116,6 +116,26 @@ function unir(pendientes, nuevos) {
   return [...m.values()];
 }
 
+// Aplica una página de documentos junto con el estado que la acompaña (rechazados, eco, pendientes y cursor).
+// El llamador abre la transacción: todo se confirma o se deshace junto.
+function aplicarPagina(db, pendientes, docs, cursor, rechazados) {
+  const hecho = aplicarLote(db, unir(pendientes, docs), rechazados);
+  guardar(db, 'rechazados', JSON.stringify(rechazados));
+  const eco = { ...leerJson(db, 'eco', {}), ...hecho.eco };
+  guardar(db, 'eco', JSON.stringify(eco));
+  guardar(db, 'pendientes', JSON.stringify(hecho.espera));
+  if (cursor != null) guardar(db, 'cursor', cursor);
+  return hecho;
+}
+
+/**
+ * Aplica una descarga completa de la nube (todas las páginas ya bajadas) como si fuera una vuelta de bajada.
+ * No abre transacción: el llamador la une a lo que tenga que ser atómico (por ejemplo, vaciar el equipo).
+ */
+export function aplicarDescarga(db, docs, cursor) {
+  return aplicarPagina(db, leerJson(db, 'pendientes', []), docs, cursor, leerJson(db, 'rechazados', {}));
+}
+
 /**
  * Una vuelta: primero sube, después baja. Devuelve { subidos, bajados, enEspera, rechazados, parcial? }.
  *  - subidos: documentos enviados; bajados: documentos aplicados localmente; enEspera: pendientes que quedan;
@@ -145,15 +165,7 @@ export async function sincronizar(db, remoto, { ahora, lote = LOTE_SUBIDA } = {}
     }
     primera = false;
     procesados += docs.length;
-    const res = enTransaccion(db, () => {
-      const hecho = aplicarLote(db, unir(pendientes, docs), rechazados);
-      guardar(db, 'rechazados', JSON.stringify(rechazados));
-      const eco = { ...leerJson(db, 'eco', {}), ...hecho.eco };
-      guardar(db, 'eco', JSON.stringify(eco));
-      guardar(db, 'pendientes', JSON.stringify(hecho.espera));
-      if (nuevoCursor != null) guardar(db, 'cursor', nuevoCursor);
-      return hecho;
-    });
+    const res = enTransaccion(db, () => aplicarPagina(db, pendientes, docs, nuevoCursor, rechazados));
     bajados += res.aplicados;
     pendientes = res.espera;
     if (!docs.length || nuevoCursor === cursor) { completa = true; break; }

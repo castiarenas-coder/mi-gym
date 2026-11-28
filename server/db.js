@@ -303,6 +303,15 @@ export const MIGRACIONES = [
         fecha TEXT NOT NULL,
         viva INTEGER NOT NULL DEFAULT 0
       );
+      -- Unificar personas es un alias, no un borrado: la persona de origen sigue viva en la nube con unificada_en y
+      -- todo lo suyo (también lo que llegue de equipos que aún no se enteraron) pasa a la conservada. datos guarda
+      -- nombre, color, avatar y creada de la persona de origen para reconstruir su documento.
+      CREATE TABLE sync_alias (
+        origen TEXT PRIMARY KEY,
+        destino TEXT NOT NULL,
+        actualizado TEXT NOT NULL,
+        datos TEXT NOT NULL
+      );
 
       ${TRIGGERS_DOCUMENTO.map(([t, tipo]) => `
       CREATE TRIGGER ${t}_uid AFTER INSERT ON ${t} WHEN NEW.uid IS NULL BEGIN
