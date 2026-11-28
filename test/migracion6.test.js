@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { migrar, MIGRACIONES, versionActual } from '../server/db.js';
+import { exportarDatos, importarDatos } from '../server/respaldo.js';
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const ISO = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/;
@@ -150,4 +151,86 @@ test('sync_estado guarda clave y valor', () => {
   const db = migrado();
   db.exec("INSERT INTO sync_estado (clave, valor) VALUES ('k', 'v')");
   assert.equal(db.prepare("SELECT valor FROM sync_estado WHERE clave = 'k'").get().valor, 'v');
+});
+
+const VIEJA = '2020-01-01T00:00:00.000Z';
+
+test('escribir a mano la misma marca que ya tenía no la mueve (documentos sin hijos)', () => {
+  const db = migrado();
+  db.exec(`INSERT INTO rutinas (id, nombre, persona_id, actualizado) VALUES (9, 'Sola', 1, '${VIEJA}')`);
+  db.exec(`INSERT INTO sesiones (id, rutina_id, fecha, estado, persona_id, actualizado) VALUES (9, NULL, '2026-02-01T10:00:00.000Z', 'finalizada', 1, '${VIEJA}')`);
+  db.exec(`UPDATE personas SET actualizado = '${VIEJA}' WHERE id = 2`);
+  db.exec(`UPDATE personas SET actualizado = '${VIEJA}' WHERE id = 2`);
+  for (const [t, id] of [['rutinas', 9], ['sesiones', 9]]) {
+    db.exec(`UPDATE ${t} SET actualizado = '${VIEJA}' WHERE id = ${id}`);
+    assert.equal(db.prepare(`SELECT actualizado a FROM ${t} WHERE id = ?`).get(id).a, VIEJA, t);
+  }
+  assert.equal(db.prepare('SELECT actualizado a FROM personas WHERE id = 2').get().a, VIEJA);
+});
+
+test('escribir a mano la misma marca no la mueve en medidas, perfil y favoritos', () => {
+  const db = migrado();
+  for (const [t, w] of [['medidas', "persona_id = 1 AND fecha = '2026-01-01'"], ['perfil', 'persona_id = 1'], ['favoritos', "persona_id = 1 AND ejercicio_id = 'A'"]]) {
+    db.exec(`UPDATE ${t} SET actualizado = '${VIEJA}' WHERE ${w}`);
+    db.exec(`UPDATE ${t} SET actualizado = '${VIEJA}' WHERE ${w}`);
+    assert.equal(db.prepare(`SELECT actualizado a FROM ${t} WHERE ${w}`).get().a, VIEJA, t);
+  }
+});
+
+test('una edición normal sigue moviendo la marca, también en medidas, perfil y personas', () => {
+  const db = migrado();
+  const casos = [
+    ['rutinas', 'id = 1', "nombre = 'nuevo'"],
+    ['sesiones', 'id = 1', "nota = 'x'"],
+    ['personas', 'id = 2', "nombre = 'Ana2'"],
+    ['medidas', "persona_id = 1 AND fecha = '2026-01-01'", 'peso_kg = 81'],
+    ['perfil', 'persona_id = 1', 'altura = 176'],
+  ];
+  for (const [t, w, set] of casos) {
+    db.exec(`UPDATE ${t} SET actualizado = '${VIEJA}' WHERE ${w}`);
+    db.exec(`UPDATE ${t} SET ${set} WHERE ${w}`);
+    assert.ok(db.prepare(`SELECT actualizado a FROM ${t} WHERE ${w}`).get().a > VIEJA, t);
+  }
+});
+
+test('un UPDATE que cambia una columna y fija otra marca respeta la marca dada', () => {
+  const db = migrado();
+  db.exec(`UPDATE rutinas SET nombre = 'z', actualizado = '${VIEJA}' WHERE id = 1`);
+  assert.equal(db.prepare('SELECT actualizado a FROM rutinas WHERE id = 1').get().a, VIEJA);
+});
+
+test('insertar, editar y borrar hijos sigue moviendo la marca del padre aunque ya valga lo mismo', () => {
+  const db = migrado();
+  const marca = () => db.prepare('SELECT actualizado a FROM sesiones WHERE id = 1').get().a;
+  db.exec(`UPDATE sesiones SET actualizado = '${VIEJA}' WHERE id = 1`);
+  db.exec("UPDATE series_hechas SET reps = 11 WHERE sesion_id = 1");
+  assert.ok(marca() > VIEJA);
+  db.exec(`UPDATE sesiones SET actualizado = '${VIEJA}' WHERE id = 1`);
+  db.exec("DELETE FROM series_hechas WHERE sesion_id = 1");
+  assert.ok(marca() > VIEJA);
+});
+
+test('importar un respaldo conserva la marca de rutinas y sesiones sin hijos', () => {
+  const db = migrado();
+  db.exec(`INSERT INTO rutinas (id, nombre, persona_id, actualizado) VALUES (9, 'Sola', 1, '${VIEJA}')`);
+  db.exec(`INSERT INTO sesiones (id, rutina_id, fecha, estado, persona_id, actualizado) VALUES (9, NULL, '2026-02-01T10:00:00.000Z', 'finalizada', 1, '${VIEJA}')`);
+  const datos = exportarDatos(db);
+  importarDatos(db, datos);
+  assert.equal(db.prepare('SELECT actualizado a FROM rutinas WHERE id = 9').get().a, VIEJA);
+  assert.equal(db.prepare('SELECT actualizado a FROM sesiones WHERE id = 9').get().a, VIEJA);
+  for (const t of ['rutinas', 'sesiones', 'personas', 'medidas', 'perfil', 'favoritos']) {
+    const antes = new Map(datos[t].map(f => [JSON.stringify([f.id, f.persona_id, f.fecha, f.ejercicio_id]), f.actualizado]));
+    for (const f of db.prepare(`SELECT * FROM ${t}`).all())
+      assert.equal(f.actualizado, antes.get(JSON.stringify([f.id, f.persona_id, f.fecha, f.ejercicio_id])), t);
+  }
+});
+
+test('COLUMNAS de los disparadores cubre todas las columnas de contenido', () => {
+  const db = migrado();
+  for (const t of ['personas', 'rutinas', 'sesiones', 'medidas', 'perfil', 'favoritos']) {
+    const cols = db.prepare(`PRAGMA table_info(${t})`).all().map(c => c.name).filter(c => c !== 'actualizado' && c !== 'uid' && c !== 'id');
+    const sql = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = ?").get(`${t}_cambio`).sql;
+    const lista = sql.match(/UPDATE OF (.+) ON/)[1].split(', ');
+    for (const c of cols) assert.ok(lista.includes(c), `${t}.${c}`);
+  }
 });

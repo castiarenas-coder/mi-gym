@@ -8,6 +8,17 @@ const AHORA = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')";
 const UUID_V4 = (fila) => `(WITH h(x) AS (SELECT lower(hex(randomblob(16))) WHERE ${fila} IS NOT NULL)
         SELECT substr(x, 1, 8) || '-' || substr(x, 9, 4) || '-4' || substr(x, 14, 3) || '-'
           || substr('89ab', 1 + abs(random()) % 4, 1) || substr(x, 18, 3) || '-' || substr(x, 21, 12) FROM h)`;
+// Columnas de contenido de cada tabla sincronizada (todas menos `actualizado` y `uid`). El disparador de cambio
+// escucha solo estas: un UPDATE que únicamente escribe `actualizado` no lo dispara, así que fijar la marca a mano
+// siempre se respeta (aunque el valor sea igual al anterior). Si una migración futura agrega columnas, hay que sumarlas acá.
+const COLUMNAS = {
+  personas: 'nombre, color, avatar, creada',
+  rutinas: 'nombre, dias, descripcion, persona_id',
+  sesiones: 'rutina_id, fecha, duracion, nota, dia_id, estado, titulo, fin, persona_id, grupo',
+  medidas: 'persona_id, fecha, peso_kg, cintura, pecho, brazo, pierna, grasa_pct',
+  perfil: 'persona_id, altura, edad, sexo, actividad, objetivo, fecha_nacimiento',
+  favoritos: 'persona_id, ejercicio_id',
+};
 const TRIGGERS_DOCUMENTO = [['personas', 'persona'], ['rutinas', 'rutina'], ['sesiones', 'sesion']];
 const TRIGGERS_NATURALES = [
   ['medidas', 'medida', (r) => `p.uid || '|' || ${r}.fecha`, (r) => `persona_id = ${r}.persona_id AND fecha = ${r}.fecha`],
@@ -289,7 +300,7 @@ export const MIGRACIONES = [
       CREATE TRIGGER ${t}_alta AFTER INSERT ON ${t} WHEN NEW.actualizado IS NULL BEGIN
         UPDATE ${t} SET actualizado = ${AHORA} WHERE id = NEW.id;
       END;
-      CREATE TRIGGER ${t}_cambio AFTER UPDATE ON ${t} WHEN NEW.actualizado IS OLD.actualizado BEGIN
+      CREATE TRIGGER ${t}_cambio AFTER UPDATE OF ${COLUMNAS[t]} ON ${t} WHEN NEW.actualizado IS OLD.actualizado BEGIN
         UPDATE ${t} SET actualizado = ${AHORA} WHERE id = NEW.id;
       END;
       CREATE TRIGGER ${t}_recrea AFTER INSERT ON ${t} WHEN NEW.uid IS NOT NULL BEGIN
@@ -303,7 +314,7 @@ export const MIGRACIONES = [
       CREATE TRIGGER ${t}_alta AFTER INSERT ON ${t} WHEN NEW.actualizado IS NULL BEGIN
         UPDATE ${t} SET actualizado = ${AHORA} WHERE ${where('NEW')};
       END;
-      CREATE TRIGGER ${t}_cambio AFTER UPDATE ON ${t} WHEN NEW.actualizado IS OLD.actualizado BEGIN
+      CREATE TRIGGER ${t}_cambio AFTER UPDATE OF ${COLUMNAS[t]} ON ${t} WHEN NEW.actualizado IS OLD.actualizado BEGIN
         UPDATE ${t} SET actualizado = ${AHORA} WHERE ${where('NEW')};
       END;
       CREATE TRIGGER ${t}_recrea AFTER INSERT ON ${t} BEGIN
