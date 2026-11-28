@@ -167,11 +167,11 @@ export function crearClienteSupabase({ url, anonKey, fetchFn = fetch, guardarSes
     async cuenta() {
       const s = await leerSesion();
       if (!s?.access_token) throw new ErrorSupabase('sin_sesion', 'No hay sesión iniciada');
-      const r = await autenticada(`/rest/v1/cuentas?select=${encodeURIComponent('plan,consentimiento_en')}`, { metodo: 'GET' });
+      const r = await autenticada(`/rest/v1/cuentas?select=${encodeURIComponent('plan,consentimiento_en,generacion')}`, { metodo: 'GET' });
       const filas = await exigir(r);
       const fila = Array.isArray(filas) ? filas[0] : null;
       const actual = await leerSesion();
-      return { id: actual?.id ?? s.id ?? null, email: actual?.email ?? s.email ?? null, plan: fila?.plan ?? 'gratis', consentimiento_en: fila?.consentimiento_en ?? null };
+      return { id: actual?.id ?? s.id ?? null, email: actual?.email ?? s.email ?? null, plan: fila?.plan ?? 'gratis', consentimiento_en: fila?.consentimiento_en ?? null, generacion: Number(fila?.generacion) || 1 };
     },
 
     async aceptarConsentimiento() {

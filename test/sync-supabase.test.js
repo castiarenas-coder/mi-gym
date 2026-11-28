@@ -243,15 +243,15 @@ test('RLS denegada (403 / 42501): plan_requerido; 5xx: servidor', async () => {
 
 test('cuenta(): email, plan y consentimiento', async () => {
   const { cliente, llamadas } = crear({
-    rutas: () => resp(200, [{ plan: 'pro', consentimiento_en: '2026-01-01T00:00:00Z' }]),
+    rutas: () => resp(200, [{ plan: 'pro', consentimiento_en: '2026-01-01T00:00:00Z', generacion: 3 }]),
   });
-  assert.deepEqual(await cliente.cuenta(), { id: null, email: 'a@b.c', plan: 'pro', consentimiento_en: '2026-01-01T00:00:00Z' });
-  assert.equal(new URL(llamadas[0].url).searchParams.get('select'), 'plan,consentimiento_en');
+  assert.deepEqual(await cliente.cuenta(), { id: null, email: 'a@b.c', plan: 'pro', consentimiento_en: '2026-01-01T00:00:00Z', generacion: 3 });
+  assert.equal(new URL(llamadas[0].url).searchParams.get('select'), 'plan,consentimiento_en,generacion');
 });
 
 test('cuenta() sin fila usa plan gratis y sin consentimiento', async () => {
   const { cliente } = crear({ rutas: () => resp(200, []) });
-  assert.deepEqual(await cliente.cuenta(), { id: null, email: 'a@b.c', plan: 'gratis', consentimiento_en: null });
+  assert.deepEqual(await cliente.cuenta(), { id: null, email: 'a@b.c', plan: 'gratis', consentimiento_en: null, generacion: 1 });
 });
 
 test('aceptarConsentimiento y borrarCuenta (cierra la sesion local)', async () => {

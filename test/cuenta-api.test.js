@@ -414,3 +414,50 @@ test('sin red tras reiniciar la app: GET /api/cuenta usa el mail de la sesión g
   assert.equal(r.json.vinculado, true);
   assert.match(r.json.error, /conexión/i);
 });
+
+test('generación: vincular la guarda; si no cambia, la sincronización no reinicia nada', async () => {
+  const c = clienteFalso({ ...PRO, generacion: 1 });
+  const s = await servidor({ cliente: c });
+  await s.pedir('/api/cuenta/vincular', { method: 'POST', body: { modo: 'subir' } });
+  assert.equal(estadoSync(s, 'generacion'), '1');
+  const envio = estadoSync(s, 'ultimo_envio');
+  assert.notEqual(envio, null);
+  assert.equal((await s.pedir('/api/cuenta/sincronizar', { method: 'POST', body: {} })).status, 200);
+  assert.equal(estadoSync(s, 'ultimo_envio'), envio);
+});
+
+test('generación: tras una purga en la nube (generación nueva) el equipo vinculado re-sube todo sin tocar sus datos', async () => {
+  const c = clienteFalso({ ...PRO, generacion: 1 });
+  const s = await servidor({ cliente: c });
+  await s.pedir('/api/cuenta/vincular', { method: 'POST', body: { modo: 'subir' } });
+  const personas = s.db.prepare('SELECT COUNT(*) n FROM personas').get().n;
+  c.r = crearRemotoEnMemoria(); // purga: la nube quedó vacía
+  c.info = { ...PRO, generacion: 2 };
+  const r = await s.pedir('/api/cuenta/sincronizar', { method: 'POST', body: {} });
+  assert.equal(r.status, 200);
+  assert.ok(c.r.documentos().length > 0, 'todo se volvió a subir');
+  assert.equal(estadoSync(s, 'generacion'), '2');
+  assert.equal(s.db.prepare('SELECT COUNT(*) n FROM personas').get().n, personas);
+});
+
+test('generación: un equipo vinculado sin generación guardada la adopta sin reiniciar', async () => {
+  const c = clienteFalso({ ...PRO, generacion: 4 });
+  const s = await servidor({ cliente: c });
+  await s.pedir('/api/cuenta/vincular', { method: 'POST', body: { modo: 'subir' } });
+  s.db.exec("DELETE FROM sync_estado WHERE clave = 'generacion'");
+  const envio = estadoSync(s, 'ultimo_envio');
+  await s.pedir('/api/cuenta/sincronizar', { method: 'POST', body: {} });
+  assert.equal(estadoSync(s, 'generacion'), '4');
+  assert.equal(estadoSync(s, 'ultimo_envio'), envio);
+});
+
+test('generación: vincular con generación distinta a la guardada también re-sube todo', async () => {
+  const c = clienteFalso({ ...PRO, generacion: 1 });
+  const s = await servidor({ cliente: c });
+  await s.pedir('/api/cuenta/vincular', { method: 'POST', body: { modo: 'subir' } });
+  c.r = crearRemotoEnMemoria();
+  c.info = { ...PRO, generacion: 2 };
+  assert.equal((await s.pedir('/api/cuenta/vincular', { method: 'POST', body: { modo: 'juntar' } })).status, 200);
+  assert.ok(c.r.documentos().length > 0);
+  assert.equal(estadoSync(s, 'generacion'), '2');
+});

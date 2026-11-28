@@ -65,10 +65,24 @@ export function crearCuenta({ db, supabase, fetchFn = fetch, cliente = null, rut
     return c;
   }
 
+  /** Olvida lo enviado y lo bajado (los datos locales y las lápidas quedan): la próxima vuelta vuelve a subir todo. */
+  const olvidarEnvios = () => { reiniciarBajada(db); db.exec("DELETE FROM sync_estado WHERE clave IN ('ultimo_envio', 'resubir')"); };
+
+  /**
+   * La nube sube su `generacion` al purgar los documentos de la cuenta. Si cambió respecto de la guardada, este equipo
+   * deja de creer que ya subió todo. Sin generación guardada solo se anota. Debe llamarse con el equipo vinculado a esta cuenta.
+   */
+  function reconciliarGeneracion(c) {
+    const actual = String(c.generacion ?? 1);
+    const guardada = leer(db, 'generacion');
+    if (guardada === actual) return;
+    enTransaccion(db, () => { if (guardada !== null) olvidarEnvios(); guardar(db, 'generacion', actual); });
+  }
+
   const programador = crearProgramador({
     ahora, timers, intervaloMs,
     sincronizar: async () => {
-      await exigirListo();
+      reconciliarGeneracion(await exigirListo());
       return sincronizar(db, cliente.remoto(), { ahora: ahora().toISOString() });
     },
   });
@@ -170,9 +184,11 @@ export function crearCuenta({ db, supabase, fetchFn = fetch, cliente = null, rut
       // respuesta perdida al borrar la cuenta): se olvida lo enviado y lo bajado para volver a subir todo.
       if ((await estadoVinculo(db, cliente.remoto())) === 'cuenta_vacia' && leer(db, 'cuenta') === id
         && (leer(db, 'cursor') !== null || leer(db, 'ultimo_envio') !== null)) {
-        enTransaccion(db, () => { reiniciarBajada(db); db.exec("DELETE FROM sync_estado WHERE clave IN ('ultimo_envio', 'resubir')"); });
+        enTransaccion(db, olvidarEnvios);
       }
+      if (leer(db, 'cuenta') === id) reconciliarGeneracion(c);
       await vincular(db, cliente.remoto(), modo, { cuenta: id, forzar: req.body?.forzar === true, backupsDir });
+      guardar(db, 'generacion', String(c.generacion ?? 1));
     });
     res.json({ ok: true, ultimaSincronizacion: leer(db, 'ultima_sync') });
   }));
